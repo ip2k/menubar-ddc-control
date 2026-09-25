@@ -263,14 +263,18 @@ final class DisplayModel: Identifiable {
 
     // MARK: GPU adjustments
 
-    /// Switching GPU adjustments off returns every GPU control to its default.
+    /// Whether GPU adjustments are applied. Switching them off keeps the slider values, so
+    /// switching back on restores the same adjustment.
     var gpuEnabled: Bool {
         get { software.enabled }
-        set {
-            var next = SoftwareAdjustment.identity.withReference(software.referenceWhitePoint)
-            next.enabled = newValue
-            software = next
-        }
+        set { software.enabled = newValue }
+    }
+
+    /// Returns every GPU control to its default, leaving GPU adjustments switched on or off as they are.
+    func resetGPUValues() {
+        var next = SoftwareAdjustment.identity.withReference(software.referenceWhitePoint)
+        next.enabled = software.enabled
+        software = next
     }
 
     // MARK: Restore

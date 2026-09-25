@@ -24,7 +24,9 @@ All notable changes to this project are documented here. The format follows
 - **Reset Values to Factory Defaults**, with a confirmation step.
 - **Monitor and GPU controls are now separate, clearly labelled sections.** By default only the
   monitor's own settings (DDC/CI) are adjustable. GPU adjustments (fine white point, gamma, colour
-  balance, extra dimming) stay greyed out at their defaults until you tick "Adjust on the GPU".
+  balance, extra dimming) sit under a disclosure arrow and stay greyed out at their defaults until
+  you tick "Adjust colors using GPU", which also opens them. Unticking it stops applying them and
+  keeps their positions for next time.
 - Hardware white point: a menu of the monitor's built-in white points (on the Xeneon Edge, only
   four: 5000, 6500, 7500 and 9300 K), with a note explaining the limit.
 - Fine white point on the GPU from 3000 to 9300 K in 10 K steps, with D50, D65, D75 and D93 marks you can tap.

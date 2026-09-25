@@ -69,7 +69,6 @@ struct MenuContent: View {
 
 struct DisplayQuickControls: View {
     @Bindable var model: DisplayModel
-    @AppStorage("showsColourBalance") private var showsBalance = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -96,9 +95,7 @@ struct DisplayQuickControls: View {
                 GPUAdjustments(model: model) {
                     WhitePointSlider(model: model)
                     GammaSlider(model: model)
-                    DisclosureGroup("Colour balance", isExpanded: $showsBalance) {
-                        SoftwareBalanceSliders(model: model).padding(.top, 8)
-                    }
+                    SoftwareBalanceSliders(model: model)
                 }
             case .softwareOnly:
                 Text("This connection doesn't carry DDC/CI, so the monitor's own settings can't be reached. Only GPU adjustments are available.")

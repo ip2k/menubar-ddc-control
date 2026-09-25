@@ -27,7 +27,7 @@ links without DDC/CI, and saved snapshots.
 - `swift run xeneonctl list|caps|get|set|profiles|profile`: talks to the real display.
 - `"build/Xeneon Control.app/Contents/MacOS/XeneonControl" --debug-open-menu --debug-snapshot <dir>`
   opens the **real** menu bar popover (by sending its own status button a mouse-down) and writes
-  every window to `<dir>/<n>.png`, then `<n>-expanded.png` with Colour balance expanded.
+  every window to `<dir>/<n>.png`, then `<n>-expanded.png` with the GPU adjustments disclosure expanded.
   `--debug-show-ui` instead shows the popover content in a panel and opens Settings (enlarged
   to 900×1900 for the snapshot). This is how to look at the UI, because the terminal has neither
   Accessibility nor Screen Recording permission. Quit the installed app first (see the bus note below).

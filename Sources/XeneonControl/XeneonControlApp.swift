@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         //   --debug-show-ui          popover content in a panel, plus Settings
         //   --debug-open-menu        clicks the app's own menu bar item to open the real popover
         //   --debug-snapshot <dir>   (with --debug-show-ui, first runs Read All DDC Values) writes each window to <dir>/<n>.png, then again as
-        //                            <n>-expanded.png with Colour balance expanded
+        //                            <n>-expanded.png with GPU adjustments expanded
         if arguments.contains("--debug-show-ui") {
             let panel = NSPanel(contentRect: NSRect(x: 200, y: 200, width: 340, height: 480),
                                 styleMask: [.titled, .utilityWindow], backing: .buffered, defer: false)
@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             try? await Task.sleep(for: .seconds(8))
             if arguments.contains("--debug-open-menu") {
-                UserDefaults.standard.set(false, forKey: "showsColourBalance")
+                UserDefaults.standard.set(false, forKey: "showsGPUAdjustments")
                 let button = Self.statusItemButton()
                 Self.log("windows: \(NSApp.windows.map { "\(type(of: $0)) \(Int($0.frame.height))" }), status button: \(button != nil)")
                 Self.open(button)
@@ -59,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await Task.sleep(for: .seconds(8))
             }
             Self.snapshotWindows(to: directory, suffix: "")
-            UserDefaults.standard.set(true, forKey: "showsColourBalance")
+            UserDefaults.standard.set(true, forKey: "showsGPUAdjustments")
             try? await Task.sleep(for: .seconds(1.5))
             Self.snapshotWindows(to: directory, suffix: "-expanded")
         }

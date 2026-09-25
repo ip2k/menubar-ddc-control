@@ -153,7 +153,7 @@ struct GainSliders: View {
                         .monospacedDigit()
                         .padding(.leading, 12)
                 }
-                Text("This monitor keeps its factory-calibrated gains and ignores changes to them over DDC/CI. For finer colour control, turn on GPU adjustments.")
+                Text("This monitor keeps its factory-calibrated gains and ignores changes to them over DDC/CI. For finer control, tick Adjust colors using GPU.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -194,7 +194,7 @@ struct SoftwareSliders: View {
             WhitePointSlider(model: model)
             GammaSlider(model: model)
             SoftwareBalanceSliders(model: model)
-            Button("Reset GPU Adjustments") { model.gpuEnabled = true }
+            Button("Reset GPU Adjustments") { model.resetGPUValues() }
                 .disabled(model.software.valuesAreDefault)
         }
     }
@@ -211,11 +211,11 @@ struct HardwareWhitePointPicker: View {
         VStack(alignment: .leading, spacing: 6) {
             Picker(selection: Binding(get: { current }, set: { model.set(.colorPreset, Int($0)) })) {
                 ForEach(steps, id: \.preset) { step in
-                    Text("\(step.kelvin) K").tag(step.preset)
+                    Text(verbatim: "\(step.kelvin) K").tag(step.preset)
                 }
                 if !steps.contains(where: { $0.preset == current }) {
                     Divider()
-                    Text(Self.otherPresetTitle(current, kelvin: model.presetKelvin)).tag(current)
+                    Text(verbatim: Self.otherPresetTitle(current, kelvin: model.presetKelvin)).tag(current)
                 }
             } label: {
                 Label("White point", systemImage: "thermometer.medium")
@@ -239,7 +239,7 @@ struct HardwareWhitePointPicker: View {
         let list = ListFormatter.localizedString(byJoining: steps.map { "\($0) K" })
         let who = model.display.isXeneonEdge ? "The Xeneon Edge" : "This monitor"
         let count = NumberFormatter.localizedString(from: steps.count as NSNumber, number: .spellOut)
-        return "\(who) has only \(count) built-in white-point calibrations (\(list)). For anything in between, turn on GPU adjustments."
+        return "\(who) has only \(count) built-in white-point calibrations (\(list)). For anything in between, tick Adjust colors using GPU."
     }
 }
 
@@ -262,21 +262,29 @@ struct ControlSourceHeader: View {
     }
 }
 
-/// The opt-in checkbox for GPU adjustments. Until it is ticked, the controls in `content`
-/// stay at their defaults and greyed out, and nothing is applied on the GPU.
+/// The opt-in checkbox for GPU adjustments, with the controls in `content` under a disclosure
+/// arrow. Ticking the box opens it; the arrow opens it without ticking. While the box is
+/// unticked the controls are greyed out and nothing is applied on the GPU; their values are kept
+/// for when it is ticked again.
 struct GPUAdjustments<Content: View>: View {
     @Bindable var model: DisplayModel
     @ViewBuilder var content: () -> Content
+    @AppStorage("showsGPUAdjustments") private var isExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle("Adjust on the GPU", isOn: $model.gpuEnabled)
-                .toggleStyle(.checkbox)
-                .help("Off: the picture is changed only through the monitor's own settings")
+        DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 10) {
                 content()
             }
+            .padding(.top, 8)
             .disabled(!model.gpuEnabled)
+        } label: {
+            Toggle("Adjust colors using GPU", isOn: $model.gpuEnabled)
+                .toggleStyle(.checkbox)
+                .help("Unticked: the picture is changed only through the monitor's own settings")
+        }
+        .onChange(of: model.gpuEnabled) { _, enabled in
+            if enabled { isExpanded = true }
         }
     }
 }
@@ -357,7 +365,7 @@ struct LinkBadge: View {
 
 /// Resizes the hosting window to its content, keeping the top edge in place. The menu bar
 /// window sizes itself once when opened and does not grow when content expands, which pushed
-/// the Settings/Quit row out of view when Colour balance was expanded.
+/// the Settings/Quit row out of view when a disclosure was expanded.
 struct FitWindowToContent: NSViewRepresentable {
     let height: CGFloat
 
