@@ -98,10 +98,12 @@ Apple Silicon, macOS 14 or later.
 
 ```sh
 brew tap ip2k/menubar-ddc-control https://github.com/ip2k/menubar-ddc-control
+brew trust ip2k/menubar-ddc-control
 brew install --cask menubar-ddc-control
 ```
 
-This also puts `ddc-control` on your `PATH`. Update with `brew upgrade --cask menubar-ddc-control`.
+Homebrew only loads casks from third-party taps you have trusted, which is what `brew trust` does
+for this one. This also puts `ddc-control` on your `PATH`. Update with `brew upgrade --cask menubar-ddc-control`.
 
 **Disk image:** download `Menubar-DDC-Control-<version>.dmg` from
 [Releases](https://github.com/ip2k/menubar-ddc-control/releases), open it, and drag the app to Applications.
