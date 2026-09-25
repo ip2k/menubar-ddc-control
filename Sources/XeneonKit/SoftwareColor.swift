@@ -5,6 +5,9 @@ import Foundation
 /// any connection, including ones without DDC/CI, but it only rescales the signal: it
 /// cannot raise the backlight, and dimming this way costs contrast.
 public struct SoftwareAdjustment: Codable, Equatable, Sendable {
+    /// Off by default: until the user opts in, nothing is applied on the GPU and only the
+    /// monitor's own (DDC/CI) settings change the picture.
+    public var enabled = false
     public var brightness: Double = 1
     public var red: Double = 1
     public var green: Double = 1
@@ -21,6 +24,7 @@ public struct SoftwareAdjustment: Codable, Equatable, Sendable {
     // Settings saved before a field existed decode with that field's default.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
         brightness = try c.decodeIfPresent(Double.self, forKey: .brightness) ?? 1
         red = try c.decodeIfPresent(Double.self, forKey: .red) ?? 1
         green = try c.decodeIfPresent(Double.self, forKey: .green) ?? 1
@@ -37,7 +41,12 @@ public struct SoftwareAdjustment: Codable, Equatable, Sendable {
         return (red * w.red, green * w.green, blue * w.blue)
     }
     public static let identity = SoftwareAdjustment()
+    /// Whether applying this changes nothing (true whenever the adjustment is switched off).
     public var isIdentity: Bool {
+        !enabled || valuesAreDefault
+    }
+
+    public var valuesAreDefault: Bool {
         brightness == 1 && red == 1 && green == 1 && blue == 1 && gamma == 1 && abs(whitePoint - referenceWhitePoint) < 1
     }
 
@@ -60,6 +69,7 @@ public struct GammaRamp: Equatable, Sendable {
     /// The ramp with `adjustment` applied on top of it: `out = in^gamma × gain × brightness`.
     /// Working from the current ramp keeps any calibration curve (VCGT) the ColorSync profile loaded.
     public func applying(_ adjustment: SoftwareAdjustment) -> GammaRamp {
+        guard adjustment.enabled else { return self }
         func map(_ channel: [CGGammaValue], _ gain: Double) -> [CGGammaValue] {
             let scale = CGGammaValue(min(max(gain, 0), 1) * min(max(adjustment.brightness, 0), 1))
             let exponent = CGGammaValue(adjustment.gamma)

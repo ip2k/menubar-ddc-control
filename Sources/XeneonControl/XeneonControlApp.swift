@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Developer aids for inspecting the UI without Accessibility or Screen Recording access:
         //   --debug-show-ui          popover content in a panel, plus Settings
         //   --debug-open-menu        clicks the app's own menu bar item to open the real popover
-        //   --debug-snapshot <dir>   writes each window to <dir>/<n>.png, then again as
+        //   --debug-snapshot <dir>   (with --debug-show-ui, first runs Read All DDC Values) writes each window to <dir>/<n>.png, then again as
         //                            <n>-expanded.png with Colour balance expanded
         if arguments.contains("--debug-show-ui") {
             let panel = NSPanel(contentRect: NSRect(x: 200, y: 200, width: 340, height: 480),
@@ -54,6 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Self.log("after open: \(NSApp.windows.map { "\(type(of: $0)) \(Int($0.frame.height)) visible \($0.isVisible)" })")
             }
             guard let directory else { return }
+            if arguments.contains("--debug-show-ui") {
+                app.selected?.readAllValues()
+                try? await Task.sleep(for: .seconds(8))
+            }
             Self.snapshotWindows(to: directory, suffix: "")
             UserDefaults.standard.set(true, forKey: "showsColourBalance")
             try? await Task.sleep(for: .seconds(1.5))

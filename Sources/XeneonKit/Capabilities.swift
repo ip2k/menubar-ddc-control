@@ -120,6 +120,11 @@ public enum VCPNames {
         return names.indices.contains(value - 1) ? names[value - 1] : "Unknown (\(value))"
     }
 
+    /// The white point a colour-temperature preset (MCCS 0x03–0x0A) is named for, in kelvin.
+    public static func presetKelvin(_ value: UInt8) -> Int? {
+        [0x03: 4000, 0x04: 5000, 0x05: 6500, 0x06: 7500, 0x07: 8200, 0x08: 9300, 0x09: 10000, 0x0A: 11500][value]
+    }
+
     /// Presets whose RGB gains are user-editable.
     public static func isUserPreset(_ value: UInt8) -> Bool { (0x0B...0x0D).contains(value) }
 }

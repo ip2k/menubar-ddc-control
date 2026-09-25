@@ -80,42 +80,35 @@ struct DisplayQuickControls: View {
                     Text("Reading the display's current settings…").foregroundStyle(.secondary)
                 }
             case .hardware:
+                ControlSourceHeader(source: .monitor)
                 if model.supports(.brightness) {
                     VCPSlider(model: model, code: .brightness, title: "Brightness", systemImage: "sun.max")
                 }
                 if model.supports(.contrast) {
                     VCPSlider(model: model, code: .contrast, title: "Contrast", systemImage: "circle.lefthalf.filled")
                 }
-                if model.supports(.colorPreset) { PresetPicker(model: model) }
-                WhitePointSlider(model: model)
-                GammaSlider(model: model)
-                DisclosureGroup("Colour balance", isExpanded: $showsBalance) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if Self.hasGains(model), !DisplayModel.gainCodes.allSatisfy(model.ignoredCodes.contains) {
-                            GainSliders(model: model)
-                            Divider()
-                        }
-                        SoftwareBalanceSliders(model: model)
-                    }
-                    .padding(.top, 8)
+                if model.supports(.colorPreset) {
+                    PresetPicker(model: model)
+                    if !model.hardwareWhitePoints.isEmpty { HardwareWhitePointPicker(model: model) }
                 }
-                Text("White point, gamma and the percentage colour balance are applied by the GPU, on top of the colour profile.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Divider()
+                ControlSourceHeader(source: .gpu)
+                GPUAdjustments(model: model) {
+                    WhitePointSlider(model: model)
+                    GammaSlider(model: model)
+                    DisclosureGroup("Colour balance", isExpanded: $showsBalance) {
+                        SoftwareBalanceSliders(model: model).padding(.top, 8)
+                    }
+                }
             case .softwareOnly:
-                Text("This connection doesn't carry DDC/CI, so the monitor can't be adjusted directly. These controls change the picture in the GPU instead.")
+                Text("This connection doesn't carry DDC/CI, so the monitor's own settings can't be reached. Only GPU adjustments are available.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                SoftwareSliders(model: model)
+                ControlSourceHeader(source: .gpu)
+                GPUAdjustments(model: model) { SoftwareSliders(model: model) }
             }
-            if let message = model.message {
-                Label(message, systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            if let message = model.message { NoticeLabel(notice: message).font(.caption) }
         }
     }
 

@@ -22,8 +22,18 @@ All notable changes to this project are documented here. The format follows
   when the app starts, and one click puts them back (including the colour profile), checking
   each value afterwards. A copy from the first time each monitor was seen is kept too.
 - **Reset Values to Factory Defaults**, with a confirmation step.
-- White point from 3000 to 9300 K in 10 K steps, with D50, D65, D75 and D93 marks you can tap.
-- Gamma in the menu bar popover.
+- **Monitor and GPU controls are now separate, clearly labelled sections.** By default only the
+  monitor's own settings (DDC/CI) are adjustable. GPU adjustments (fine white point, gamma, colour
+  balance, extra dimming) stay greyed out at their defaults until you tick "Adjust on the GPU".
+- Hardware white point: a menu of the monitor's built-in white points (on the Xeneon Edge, only
+  four: 5000, 6500, 7500 and 9300 K), with a note explaining the limit.
+- Fine white point on the GPU from 3000 to 9300 K in 10 K steps, with D50, D65, D75 and D93 marks you can tap.
+- Gamma in the menu bar popover (GPU; the Xeneon Edge has no hardware gamma).
+- Switching the Xeneon Edge back to User 1 restores its factory calibration automatically if
+  another preset reset it.
+- Debug tools in Settings: read every DDC/CI value into a table, save it as JSON, and load a saved
+  file to write its settings back (same monitor model only; verified afterwards).
+  `xeneonctl dump` and `xeneonctl load` do the same from the command line.
 
 ### Documentation
 
@@ -38,6 +48,7 @@ All notable changes to this project are documented here. The format follows
   monitor's own calibration is never touched.
 - The Xeneon Edge's RGB gains are shown read-only: the monitor ignores changes to them, and
   a slider that did nothing was misleading.
-- A warning now explains that choosing another preset on the Xeneon Edge resets User 1's factory
-  calibration, and that Restore Previous Values brings it back.
+- A note under the preset menu explains that some presets on the Xeneon Edge can reset User 1's
+  factory calibration, and that switching back restores it.
+- Information messages no longer look like warnings.
 - Running the app and `xeneonctl` at the same time no longer produces wrong readings.

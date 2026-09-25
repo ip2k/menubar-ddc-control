@@ -69,7 +69,7 @@ struct WhitePointSlider: View {
     @Bindable var model: DisplayModel
 
     var body: some View {
-        ValueSlider(title: "White point", systemImage: "thermometer.medium", value: $model.software.whitePoint,
+        ValueSlider(title: "Fine white point", systemImage: "thermometer.medium", value: $model.software.whitePoint,
                     range: WhitePoint.range, step: WhitePoint.step, format: { "\(Int($0.rounded())) K" }) {
             MarkerRow(range: WhitePoint.range, markers: WhitePoint.markers) { model.software.whitePoint = $0 }
         }
@@ -131,7 +131,7 @@ struct PresetPicker: View {
             }
             .disabled(!model.canWrite)
             if model.display.quirks.leavingUserPresetResetsGains, model.isUserPresetActive {
-                Text("Choosing another preset resets \(VCPNames.colorPreset(current))'s factory calibration on this monitor. Restore Previous Values brings it back.")
+                Text("On this monitor some presets (sRGB, Native) can reset \(VCPNames.colorPreset(current))'s factory calibration. Switching back to \(VCPNames.colorPreset(current)) restores it automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -153,7 +153,7 @@ struct GainSliders: View {
                         .monospacedDigit()
                         .padding(.leading, 12)
                 }
-                Text("This monitor keeps its factory-calibrated gains and ignores changes over DDC/CI. Use White point and Colour balance (GPU) to adjust colour.")
+                Text("This monitor keeps its factory-calibrated gains and ignores changes to them over DDC/CI. For finer colour control, turn on GPU adjustments.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -194,8 +194,89 @@ struct SoftwareSliders: View {
             WhitePointSlider(model: model)
             GammaSlider(model: model)
             SoftwareBalanceSliders(model: model)
-            Button("Reset Software Adjustment") { model.software = .identity.withReference(model.software.referenceWhitePoint) }
-                .disabled(model.software.isIdentity)
+            Button("Reset GPU Adjustments") { model.gpuEnabled = true }
+                .disabled(model.software.valuesAreDefault)
+        }
+    }
+}
+
+/// The monitor's own white points: its colour-temperature presets, chosen from a menu because
+/// there are only a few (four on the Xeneon Edge). Selecting one switches the monitor's preset.
+struct HardwareWhitePointPicker: View {
+    let model: DisplayModel
+
+    var body: some View {
+        let steps = model.hardwareWhitePoints
+        let current = UInt8(clamping: model.value(.colorPreset))
+        VStack(alignment: .leading, spacing: 6) {
+            Picker(selection: Binding(get: { current }, set: { model.set(.colorPreset, Int($0)) })) {
+                ForEach(steps, id: \.preset) { step in
+                    Text("\(step.kelvin) K").tag(step.preset)
+                }
+                if !steps.contains(where: { $0.preset == current }) {
+                    Divider()
+                    Text(Self.otherPresetTitle(current, kelvin: model.presetKelvin)).tag(current)
+                }
+            } label: {
+                Label("White point", systemImage: "thermometer.medium")
+            }
+            .pickerStyle(.menu)
+            .disabled(!model.canWrite)
+            Text(Self.caption(for: model, steps: steps.map(\.kelvin)))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    static func otherPresetTitle(_ preset: UInt8, kelvin: Int?) -> String {
+        let name = VCPNames.colorPreset(preset)
+        guard let kelvin, VCPNames.isUserPreset(preset) else { return name }
+        return "\(name) (\(kelvin) K, calibrated)"
+    }
+
+    static func caption(for model: DisplayModel, steps: [Int]) -> String {
+        let list = ListFormatter.localizedString(byJoining: steps.map { "\($0) K" })
+        let who = model.display.isXeneonEdge ? "The Xeneon Edge" : "This monitor"
+        let count = NumberFormatter.localizedString(from: steps.count as NSNumber, number: .spellOut)
+        return "\(who) has only \(count) built-in white-point calibrations (\(list)). For anything in between, turn on GPU adjustments."
+    }
+}
+
+/// A section title that says where its controls take effect.
+struct ControlSourceHeader: View {
+    enum Source { case monitor, gpu }
+    let source: Source
+
+    var body: some View {
+        switch source {
+        case .monitor:
+            Label("Monitor (DDC/CI)", systemImage: "cable.connector")
+                .font(.subheadline.weight(.semibold))
+                .help("Settings stored in the monitor itself")
+        case .gpu:
+            Label("GPU", systemImage: "cpu")
+                .font(.subheadline.weight(.semibold))
+                .help("Applied by the graphics card on top of the monitor and its colour profile")
+        }
+    }
+}
+
+/// The opt-in checkbox for GPU adjustments. Until it is ticked, the controls in `content`
+/// stay at their defaults and greyed out, and nothing is applied on the GPU.
+struct GPUAdjustments<Content: View>: View {
+    @Bindable var model: DisplayModel
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("Adjust on the GPU", isOn: $model.gpuEnabled)
+                .toggleStyle(.checkbox)
+                .help("Off: the picture is changed only through the monitor's own settings")
+            VStack(alignment: .leading, spacing: 10) {
+                content()
+            }
+            .disabled(!model.gpuEnabled)
         }
     }
 }
@@ -290,5 +371,15 @@ struct FitWindowToContent: NSViewRepresentable {
             let resized = NSRect(x: content.minX, y: content.maxY - height, width: content.width, height: height)
             window.setFrame(window.frameRect(forContentRect: resized), display: true, animate: false)
         }
+    }
+}
+
+struct NoticeLabel: View {
+    let notice: Notice
+
+    var body: some View {
+        Label(notice.text, systemImage: notice.isProblem ? "exclamationmark.triangle" : "info.circle")
+            .foregroundStyle(notice.isProblem ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

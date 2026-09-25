@@ -95,7 +95,7 @@ extension DDCChannel {
 
         let final = captureState { state[$0] != nil }
         report.final = final
-        for code in state.values.keys.sorted().map { VCPCode($0) } where final[code] != state[code] {
+        for code in state.values.keys.sorted().map({ VCPCode($0) }) where final[code] != state[code] {
             if code == .colorTemperatureRequest, userPreset { continue }
             report.mismatches.append(.init(code: code, wanted: state[code]!, actual: final[code]))
         }

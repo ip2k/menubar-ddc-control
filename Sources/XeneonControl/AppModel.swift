@@ -139,7 +139,7 @@ final class AppModel {
 
     func assign(_ profile: ICCProfile?, to model: DisplayModel) {
         guard ICCProfiles.assign(profile, to: model.displayID) else {
-            model.message = "ColorSync refused the profile"
+            model.message = .problem("ColorSync refused the profile")
             return
         }
         Task {
@@ -156,7 +156,7 @@ final class AppModel {
             assign(ICCProfile(url: installed, name: installed.deletingPathExtension().lastPathComponent), to: model)
             reloadProfiles()
         } catch {
-            model.message = "Couldn't install the profile: \(error.localizedDescription)"
+            model.message = .problem("Couldn't install the profile: \(error.localizedDescription)")
         }
     }
 

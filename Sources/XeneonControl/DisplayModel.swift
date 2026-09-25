@@ -36,10 +36,12 @@ final class DisplayModel: Identifiable {
     var capabilities: Capabilities?
     var readings: [VCPCode: VCPReading] = [:]
     var info: [VCPCode: VCPReading] = [:]
-    var message: String?
+    var message: Notice?
     var profile: ICCProfile?
     /// A restore or reset is running; controls are disabled meanwhile.
     var isBusy = false
+    /// The last full read of every advertised VCP code (Debug section).
+    var lastDump: DDCDump?
     /// Codes the monitor accepted a write for without changing (the Edge's RGB gains).
     var ignoredCodes: Set<VCPCode> = []
     var software: SoftwareAdjustment {
@@ -76,7 +78,7 @@ final class DisplayModel: Identifiable {
 
     private func configureChannel() {
         display.ddc?.onWriteError = { [weak self] code, error in
-            Task { @MainActor in self?.message = "Couldn't set \(code): \(error)" }
+            Task { @MainActor in self?.message = .problem("Couldn't set \(code): \(error)") }
         }
     }
 
@@ -174,14 +176,24 @@ final class DisplayModel: Identifiable {
         Binding(get: { Double(self.value(code)) }, set: { self.set(code, Int($0.rounded())) })
     }
 
+    /// The monitor's built-in white points: its colour-temperature presets, coolest last.
+    var hardwareWhitePoints: [(preset: UInt8, kelvin: Int)] {
+        (capabilities?.vcp[.colorPreset] ?? []).compactMap { p in VCPNames.presetKelvin(p).map { (p, $0) } }
+            .sorted { $0.kelvin < $1.kelvin }
+    }
+
     var isUserPresetActive: Bool {
         readings[.colorPreset].map { VCPNames.isUserPreset(UInt8(clamping: $0.current)) } ?? false
     }
 
     var canWrite: Bool { link == .hardware && launchState != nil && !isBusy }
 
+    /// User-preset values saved just before switching away from it, so they can be put back.
+    @ObservationIgnored private var userPresetState: DisplayState?
+
     func set(_ code: VCPCode, _ value: Int) {
         guard canWrite, !ignoredCodes.contains(code), let ddc = display.ddc else { return }
+        if code == .colorPreset, selectPreset(UInt8(clamping: value)) { return }
         let clamped = min(max(value, 0), readings[code]?.maximum ?? Int(UInt16.max))
         readings[code, default: VCPReading(current: clamped, maximum: Int(UInt16.max))].current = clamped
         editedAt[code] = .now
@@ -189,6 +201,32 @@ final class DisplayModel: Identifiable {
         ddc.enqueueWrite(code, UInt16(clamped))
         if code == .colorPreset { scheduleReread() }
         scheduleVerify(code, clamped)
+    }
+
+    /// Handles preset changes that leave or return to a User preset. Returns false when the
+    /// ordinary write path should handle the change.
+    ///
+    /// On the Xeneon Edge some preset changes reset User 1's calibrated gains (and its
+    /// brightness and contrast), and gain writes are ignored, so leaving it records its values
+    /// and returning runs the verified restore, which falls back to restore colour defaults (0x08).
+    private func selectPreset(_ preset: UInt8) -> Bool {
+        let current = UInt8(clamping: value(.colorPreset))
+        if isUserPresetActive, !VCPNames.isUserPreset(preset) {
+            userPresetState = DisplayState(values: Dictionary(uniqueKeysWithValues:
+                DisplayState.restorableCodes.filter { $0 != .colorTemperatureRequest }.compactMap { code in
+                    readings[code].map { (code.rawValue, $0.current) }
+                }))
+            return false
+        }
+        guard VCPNames.isUserPreset(preset), preset != current else { return false }
+        var saved = userPresetState ?? launchState.flatMap { state in
+            state[.colorPreset].map { VCPNames.isUserPreset(UInt8(clamping: $0)) } == true ? state : nil
+        }
+        guard saved != nil, saved?[.colorPreset] == Int(preset) else { return false }
+        saved?.values[VCPCode.colorTemperatureRequest.rawValue] = nil
+        readings[.colorPreset]?.current = Int(preset)
+        restore(to: saved, profile: profile, software: software, label: "\(VCPNames.colorPreset(preset))")
+        return true
     }
 
     /// Reads a control back once the writes stop. A monitor that acknowledges a write but keeps
@@ -204,7 +242,7 @@ final class DisplayModel: Identifiable {
             readings[code] = actual
             if code == .colorPreset { return }
             ignoredCodes.insert(code)
-            message = "\(name) ignores changes to \(Self.title(of: code)) over DDC/CI."
+            message = .problem("\(name) ignores changes to \(Self.title(of: code)) over DDC/CI.")
         }
     }
 
@@ -220,6 +258,18 @@ final class DisplayModel: Identifiable {
         case .blueGain: "blue gain"
         case .osdLanguage: "the menu language"
         default: "VCP \(code)"
+        }
+    }
+
+    // MARK: GPU adjustments
+
+    /// Switching GPU adjustments off returns every GPU control to its default.
+    var gpuEnabled: Bool {
+        get { software.enabled }
+        set {
+            var next = SoftwareAdjustment.identity.withReference(software.referenceWhitePoint)
+            next.enabled = newValue
+            software = next
         }
     }
 
@@ -249,10 +299,10 @@ final class DisplayModel: Identifiable {
         runExclusive {
             let report = await Task.detached { ddc.restore(state, allowColorDefaults: allowColorDefaults) }.value
             if report.succeeded {
-                self.message = "Restored the settings from \(label)."
+                self.message = .info("Restored the settings from \(label).")
             } else {
                 let names = report.mismatches.map { Self.title(of: $0.code) }.joined(separator: ", ")
-                self.message = "Couldn't restore \(names)."
+                self.message = .problem("Couldn't restore \(names).")
             }
         }
     }
@@ -263,7 +313,7 @@ final class DisplayModel: Identifiable {
         let caps = capabilities
         runExclusive {
             _ = await Task.detached { ddc.resetToFactoryDefaults(capabilities: caps) }.value
-            self.message = "Reset to factory defaults. Restore Previous Values undoes this."
+            self.message = .info("Reset to factory defaults. Restore Previous Values undoes this.")
         }
     }
 
@@ -273,8 +323,30 @@ final class DisplayModel: Identifiable {
         runExclusive {
             let sent = await Task.detached { (try? ddc.writeVCP(command, 1)) != nil }.value
             try? await Task.sleep(for: .seconds(2.5))
-            self.message = sent ? nil : "The monitor didn't accept the restore command."
+            self.message = sent ? nil : .problem("The monitor didn't accept the restore command.")
         }
+    }
+
+    // MARK: Debug
+
+    /// Reads every code the monitor advertises into `lastDump`. Read-only.
+    func readAllValues() {
+        guard link == .hardware, let ddc = display.ddc else { return }
+        let identity = display.identity, caps = capabilities
+        runExclusive {
+            self.lastDump = await Task.detached { ddc.dump(identity: identity, capabilities: caps) }.value
+            self.message = .info("Read \(self.lastDump?.values.count ?? 0) values.")
+        }
+    }
+
+    /// Writes a saved dump's writable settings back, then verifies them.
+    func writeBack(_ dump: DDCDump) {
+        guard dump.matches(display.identity) else {
+            message = .problem("That file is from \(dump.display.name ?? "another monitor") (model \(dump.display.model)), not this one; nothing was written.")
+            return
+        }
+        restore(to: dump.restorableState, profile: profile, software: software,
+                label: "the file saved \(dump.capturedAt.formatted(date: .abbreviated, time: .shortened))")
     }
 
     /// Runs `body` with the controls disabled, then re-reads everything.
@@ -318,6 +390,15 @@ extension SoftwareAdjustment {
         copy.whitePoint = kelvin
         return copy
     }
+}
+
+/// A line of feedback under the controls: information, or a problem the user should know about.
+struct Notice: Equatable {
+    var text: String
+    var isProblem: Bool
+
+    static func info(_ text: String) -> Notice { Notice(text: text, isProblem: false) }
+    static func problem(_ text: String) -> Notice { Notice(text: text, isProblem: true) }
 }
 
 struct Snapshot: Codable, Identifiable, Equatable {

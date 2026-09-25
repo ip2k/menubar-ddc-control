@@ -9,8 +9,10 @@ tool for this monitor, on any OS.
   Brightness, contrast, sharpness and presets all work with any DDC/CI tool.
 - The Edge has **no on-screen menu**. DDC/CI (or iCUE on Windows) is the only way to change
   its settings, so a bad write can leave you with no way back. Read [Recovery](#recovery) before you write anything.
-- **RGB gain writes are silently ignored**, and **leaving the User 1 preset destroys its
-  factory calibration** until you send VCP `0x08`. These two quirks cause almost every problem.
+- **The hardware white point has only four steps** (5000, 6500, 7500, 9300 K), and RGB gain
+  writes are **silently ignored**, so any finer colour control has to happen on the host.
+- **Some preset changes wipe User 1's factory calibration** until you send VCP `0x08`. That and
+  the ignored gain writes cause almost every problem.
 
 Status used below: **verified** (done and read back on the device), **read only** (we only
 read it), **untested** (advertised, never sent), **not supported** (the monitor says so or
@@ -60,19 +62,19 @@ read on a unit in its factory state: User 1 preset, factory-calibrated gains.
 | Code | MCCS name | Range | Observed | Status | What it does and what we found |
 |---|---|---|---|---|---|
 | `0x02` | New control value | 0–2 | 1 | read only | Standard "a control changed" flag. |
-| `0x04` | Restore factory defaults | write 1 | — | **untested** | Advertised. We never sent it, because the Edge has no menu to fix things if it misbehaves. |
-| `0x05` | Restore brightness/contrast | write 1 | — | untested | Advertised. |
-| `0x06` | Restore geometry | write 1 | — | untested | Advertised, but geometry means nothing on an LCD; generic scaler entry. |
+| `0x04` | Restore factory defaults | write 1 (reads 0, max 1) | — | **untested** | Advertised. We never sent it, because the Edge has no menu to fix things if it misbehaves. |
+| `0x05` | Restore brightness/contrast | write 1 (reads 0, max 1) | — | untested | Advertised. |
+| `0x06` | Restore geometry | write 1 (reads 0, max 1) | — | untested | Advertised, but geometry means nothing on an LCD; generic scaler entry. |
 | `0x08` | Restore colour defaults | write 1 (reads back 0, max 1) | — | **verified** | **The recovery command.** It restored User 1's gains to the factory 151/127/139 after they had been reset to 255/255/255. Brightness (95), contrast (50) and the preset (User 1) were unchanged by it. |
 | `0x0B` | Colour temperature increment | — | 100 | read only | 100 K per step of `0x0C` (the reported maximum is 0, which is normal for this read-only code). |
 | `0x0C` | Colour temperature request | 0–63 | 35 | verified: **snaps to a preset** | Kelvin = 3000 + value × 100, so 3000–9300 K. **It isn't a fine control:** every write selects a preset and the value snaps to that preset's temperature, as in the table after this one. So in effect it's a second preset selector, with the same User 1 hazard as `0x14`. |
 | `0x10` | Luminance (brightness) | 0–100 | 95 | **verified** | Backlight. Writes take effect immediately and read back exactly (tested 95 → 80 → 95). |
 | `0x12` | Contrast | 0–100 | 50 | **verified** | Writes read back exactly. |
-| `0x14` | Select colour preset | advertised values `01 02 04 05 06 08 0B`; reported max 11 | 11 (`0x0B`) | verified: **hazard** | `01` sRGB, `02` Native, `04` 5000 K, `05` 6500 K, `06` 7500 K, `08` 9300 K, `0B` User 1 (MCCS names; the temperatures agree with `0x0C` readings). **Selecting any other preset and then returning to User 1 resets User 1's gains to 255/255/255**, which looks far too bright with washed-out blacks. Only `0x08` brings the calibration back. After cycling through several presets, brightness and contrast also read 16/16 on return and had to be rewritten. |
+| `0x14` | Select colour preset | advertised values `01 02 04 05 06 08 0B`; reported max 11 | 11 (`0x0B`) | verified: **hazard** | `01` sRGB, `02` Native, `04` 5000 K, `05` 6500 K, `06` 7500 K, `08` 9300 K, `0B` User 1 (MCCS names; the temperatures agree with `0x0C` readings). **User 1's factory calibration can be lost:** after `0x0C` writes and a pass through `01` sRGB and `02` Native, returning to User 1 found its gains at 255/255/255 (far too bright, washed-out blacks) and brightness/contrast at 16/16. Only `0x08` brought the gains back. A round trip through just `04` and `06` kept everything intact, so the trigger is sRGB/Native or the `0x0C` writes; which one hasn't been isolated. |
 | `0x16` | Video gain: red | 0–255 | 151 | verified: **writes ignored** | Factory calibration of User 1. Writes are acknowledged but the value never changes (tried 200, 100 and 151, in User 1). Reads return User 1's gains whichever preset is active. |
 | `0x18` | Video gain: green | 0–255 | 127 | writes ignored | As `0x16`. |
 | `0x1A` | Video gain: blue | 0–255 | 139 | writes ignored | As `0x16`. |
-| `0x52` | Active control | 0–63 | 35 | read only, unclear | Returned the same reply as `0x0C` when read straight after it, so it may be a stale reply; not relied on. |
+| `0x52` | Active control | echoes | echoes | read only: **echoes the previous reply** | Returns the value and maximum of whichever code was read just before it: 35/63 after `0x0C`, 139/255 after `0x1A`. Don't rely on it. |
 | `0x60` | Input source | advertised `01 03 04 0F 10 11 12`; reported max 3 | 15 (`0x0F`, DisplayPort 1) over USB-C | read only | The advertised list (VGA, DVI, DP, HDMI…) is the scaler's generic one; the Edge only has USB-C and HDMI. **Not written:** switching to an unconnected input could blank the screen, and there's no menu to switch back. |
 | `0x87` | Sharpness | 0–4 | 2 | read only | 5 steps. Never written. |
 | `0xAC` | Horizontal frequency | — | 50600 | read only | Raw value as reported (50.6 kHz at 2560×720 @ 60 Hz). |
@@ -108,11 +110,15 @@ Each preset's own `0x0C` reading: `04` → 20, `05` → 35, `06` → 45, `08` �
 
 ## Quirks, in practice
 
-1. **Fine white-point control isn't possible in hardware.** Gains are read-only and `0x0C`
+1. **The hardware white point has exactly four steps: 5000, 6500, 7500 and 9300 K** (presets
+   `04`, `05`, `06`, `08`). User 1 also sits at 6500 K, with its own calibration. Nothing in
+   between is possible in hardware. **Fine white-point control isn't possible in hardware.** Gains are read-only and `0x0C`
    only picks presets, so a smooth white point has to be done on the host (GPU gamma tables).
    Xeneon Control does this relative to the preset's own white.
-2. **Stay on User 1.** It holds the factory calibration (151/127/139). Touching `0x14` or `0x0C`
-   loses it until `0x08`.
+2. **Prefer User 1.** It holds the factory calibration (151/127/139). The temperature presets
+   are safe to visit, but sRGB/Native (or `0x0C` writes) can wipe it until `0x08`. Before
+   leaving User 1, save its values. On return, if the gains came back wrong, send `0x08`, then
+   rewrite brightness and contrast. Xeneon Control does this automatically.
 3. **Verify every write by reading it back.** The monitor acknowledges writes it ignores,
    so a successful write call proves nothing.
 4. **Never let two programs talk to the bus at once.** Interleaved transactions from two
@@ -137,6 +143,30 @@ With this repo: `xeneonctl set 0x08 1`, then `xeneonctl state show`. `xeneonctl 
 and `state restore <file>` save and restore every value above, falling back to `0x08` for the gains.
 With `ddcutil` on Linux, the same steps are `ddcutil setvcp 14 0x0b`, `ddcutil setvcp 08 1`, `ddcutil getvcp 16 18 1A`.
 
+## Dump file format
+
+`xeneonctl dump <file>` and **Settings → Debug → Read All DDC Values / Save as JSON** write every
+advertised code as JSON (`"format": "xeneonkit-ddc-dump/1"`), which is useful for comparing
+units or firmware versions:
+
+```json
+{
+  "capabilities" : "(prot(monitor)type(LCD)model(RTK)…)",
+  "capturedAt" : "2026-09-25T21:40:00Z",
+  "display" : { "manufacturerID" : "CRX", "model" : 60672, "name" : "XENEON EDGE", "vendor" : 3672 },
+  "format" : "xeneonkit-ddc-dump/1",
+  "unanswered" : [ "0xFD", "0xFF" ],
+  "values" : [
+    { "code" : "0x10", "current" : 95, "maximum" : 100, "name" : "Brightness", "restorable" : true },
+    { "code" : "0xAE", "current" : 6030, "maximum" : 65535, "name" : "Vertical frequency", "restorable" : false }
+  ]
+}
+```
+
+`xeneonctl load <file>` (or **Load JSON and Write Back**) writes only the `restorable` values back,
+in the verified order (preset, then gains with the `0x08` fallback, then luminance), and only onto
+the same vendor and model.
+
 ## macOS specifics
 
 - On Apple Silicon, DDC/CI goes through the private `IOAVServiceReadI2C` / `IOAVServiceWriteI2C`
@@ -153,7 +183,8 @@ With `ddcutil` on Linux, the same steps are `ddcutil setvcp 14 0x0b`, `ddcutil s
 - **How iCUE sets RGB gains.** Probably over the `1b1c:1d0d` HID channel; the protocol for it
   isn't public. That's the only known route to a hardware white point besides presets.
 - Whether `0x04` (factory reset) is safe, and what it resets on this monitor.
-- What `0xF1` and `0x52` mean here, and whether `0xCC` does anything with no OSD.
+- What `0xF1` means here, and whether `0xCC` does anything with no OSD.
+- Which of sRGB, Native or `0x0C` writes is what wipes User 1's calibration.
 - Whether HDMI DDC/CI works from other hosts (a PC, or later Macs whose HDMI ports pass DDC).
 
 ## Sources and credit
