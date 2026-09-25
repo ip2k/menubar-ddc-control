@@ -25,6 +25,11 @@ All notable changes to this project are documented here. The format follows
 - White point from 3000 to 9300 K in 10 K steps, with D50, D65, D75 and D93 marks you can tap.
 - Gamma in the menu bar popover.
 
+### Documentation
+
+- A DDC/CI reference for the Xeneon Edge (`docs/xeneon-edge-ddc.md`): every VCP code with its
+  range, factory value and behaviour, the quirks, and a recovery procedure.
+
 ### Fixed
 
 - Expanding Colour balance no longer pushes Settings and Quit out of the popover.

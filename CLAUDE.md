@@ -36,6 +36,9 @@ links without DDC/CI, and saved snapshots.
 
 ## Hardware facts (verified on the owner's Edge, 2026-09-25)
 
+The full, public reference is `docs/xeneon-edge-ddc.md`: keep it in step with anything newly
+measured, and keep personal identifiers (USB serials, the owner's machine) out of it.
+
 - The Edge's picture settings are **standard DDC/CI (MCCS 2.2)** on a Realtek scaler
   (`model(RTK)`). iCUE's USB HID channel (`1b1c:1d0d`, usage page `0xFF1B`) is not needed
   for any of them.
