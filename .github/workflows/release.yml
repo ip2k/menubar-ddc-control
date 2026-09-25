@@ -49,6 +49,7 @@ jobs:
 
           \`\`\`sh
           brew tap ip2k/menubar-ddc-control https://github.com/ip2k/menubar-ddc-control
+          brew trust ip2k/menubar-ddc-control
           brew install --cask menubar-ddc-control
           \`\`\`
 

@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Documentation
+
+- The Homebrew instructions now include `brew trust ip2k/menubar-ddc-control`: current Homebrew
+  refuses to load casks from a tap you haven't trusted.
+
 ## [0.1.0] - 2026-09-25
 
 First public release.
