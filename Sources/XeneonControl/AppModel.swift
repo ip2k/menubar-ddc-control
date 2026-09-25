@@ -22,13 +22,25 @@ final class AppModel {
     @ObservationIgnored private var rescanTask: Task<Void, Never>?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
+    /// Each display's settings the first time this app ever saw it; never overwritten.
+    var originals: [String: OriginalState] = [:] {
+        didSet { save(originals, forKey: Keys.originals) }
+    }
+
+    struct OriginalState: Codable, Equatable {
+        var state: DisplayState
+        var profilePath: String?
+    }
+
     private enum Keys {
         static let snapshots = "snapshots"
+        static let originals = "originals"
         static func software(_ key: String) -> String { "software.\(key)" }
     }
 
     init() {
         snapshots = load([Snapshot].self, forKey: Keys.snapshots) ?? []
+        originals = load([String: OriginalState].self, forKey: Keys.originals) ?? [:]
         rescan()
         reloadProfiles()
         let center = NotificationCenter.default
@@ -127,7 +139,7 @@ final class AppModel {
 
     func assign(_ profile: ICCProfile?, to model: DisplayModel) {
         guard ICCProfiles.assign(profile, to: model.displayID) else {
-            model.message = "ColorSync refused the profile"
+            model.message = .problem("ColorSync refused the profile")
             return
         }
         Task {
@@ -144,8 +156,23 @@ final class AppModel {
             assign(ICCProfile(url: installed, name: installed.deletingPathExtension().lastPathComponent), to: model)
             reloadProfiles()
         } catch {
-            model.message = "Couldn't install the profile: \(error.localizedDescription)"
+            model.message = .problem("Couldn't install the profile: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: Original state
+
+    func recordOriginal(_ state: DisplayState, profile: ICCProfile?, for model: DisplayModel) {
+        guard originals[model.id] == nil else { return }
+        originals[model.id] = OriginalState(state: state, profilePath: profile?.url.path)
+    }
+
+    func restoreOriginal(of model: DisplayModel) {
+        guard let original = originals[model.id] else { return }
+        let profile = original.profilePath.map { ICCProfile(url: URL(fileURLWithPath: $0), name: "") }
+        let date = original.state.capturedAt.formatted(date: .abbreviated, time: .shortened)
+        model.restore(to: original.state, profile: profile, software: .identity.withReference(model.software.referenceWhitePoint),
+                      label: "when first seen (\(date))")
     }
 
     // MARK: Snapshots

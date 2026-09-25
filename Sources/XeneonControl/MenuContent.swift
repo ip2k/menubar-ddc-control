@@ -5,12 +5,14 @@ import XeneonKit
 struct MenuContent: View {
     @Bindable var app: AppModel
     @Environment(\.openSettings) private var openSettings
+    @State private var contentHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
             if let model = app.selected {
                 DisplayQuickControls(model: model)
+                RestoreButtons(model: model)
                 snapshotMenu(for: model)
             } else {
                 Text("No external display connected.")
@@ -30,6 +32,9 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 340)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+        .background(FitWindowToContent(height: contentHeight))
         .task(id: app.selected?.id) { await app.selected?.refresh() }
     }
 
@@ -63,8 +68,7 @@ struct MenuContent: View {
 }
 
 struct DisplayQuickControls: View {
-    let model: DisplayModel
-    @State private var showsBalance = false
+    @Bindable var model: DisplayModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -72,34 +76,36 @@ struct DisplayQuickControls: View {
             case .probing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Talking to the display…").foregroundStyle(.secondary)
+                    Text("Reading the display's current settings…").foregroundStyle(.secondary)
                 }
             case .hardware:
+                ControlSourceHeader(source: .monitor)
                 if model.supports(.brightness) {
                     VCPSlider(model: model, code: .brightness, title: "Brightness", systemImage: "sun.max")
                 }
                 if model.supports(.contrast) {
                     VCPSlider(model: model, code: .contrast, title: "Contrast", systemImage: "circle.lefthalf.filled")
                 }
-                if model.supports(.colorPreset) { PresetPicker(model: model) }
-                if model.supports(.colorTemperatureRequest), !model.isUserPresetActive { TemperatureSlider(model: model) }
-                if Self.hasGains(model) {
-                    DisclosureGroup("Colour balance", isExpanded: $showsBalance) {
-                        GainSliders(model: model).padding(.top, 8)
-                    }
+                if model.supports(.colorPreset) {
+                    PresetPicker(model: model)
+                    if !model.hardwareWhitePoints.isEmpty { HardwareWhitePointPicker(model: model) }
+                }
+                Divider()
+                ControlSourceHeader(source: .gpu)
+                GPUAdjustments(model: model) {
+                    WhitePointSlider(model: model)
+                    GammaSlider(model: model)
+                    SoftwareBalanceSliders(model: model)
                 }
             case .softwareOnly:
-                Text("This connection doesn't carry DDC/CI, so the monitor can't be adjusted directly. These controls change the picture in the GPU instead.")
+                Text("This connection doesn't carry DDC/CI, so the monitor's own settings can't be reached. Only GPU adjustments are available.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                SoftwareSliders(model: model)
+                ControlSourceHeader(source: .gpu)
+                GPUAdjustments(model: model) { SoftwareSliders(model: model) }
             }
-            if let message = model.message {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
+            if let message = model.message { NoticeLabel(notice: message).font(.caption) }
         }
     }
 

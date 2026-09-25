@@ -10,6 +10,11 @@ usage: xeneonctl [--display <name>] <command>
   set <code> <value>        write a VCP code
   profiles                  installed display ICC profiles
   profile [<path>|factory]  show, assign or reset the display's ICC profile
+  dump [<file>]             read every advertised VCP code; print or save as JSON (read-only)
+  load <file>               write a dump's writable settings back and verify them
+  state show                print every restorable setting (read-only)
+  state save <file>         save them as JSON (read-only)
+  state restore <file>      write a saved state back and verify it
 
 names: brightness contrast preset red green blue sharpness temperature language
 The default display is the Xeneon Edge, else the first external display.
@@ -93,6 +98,56 @@ do {
         }
         let current = ICCProfiles.current(for: display.id)
         print(current.map { "\($0.name)\t\($0.url.path)" } ?? "unknown")
+    case "dump":
+        let display = target()
+        let ddc = channel(display)
+        let data = try DDCDump.encoder.encode(ddc.dump(identity: display.identity, capabilities: try? ddc.capabilities()))
+        if arguments.count == 2 {
+            try data.write(to: URL(fileURLWithPath: arguments[1]))
+        } else {
+            print(String(decoding: data, as: UTF8.self))
+        }
+    case "load":
+        guard arguments.count == 2 else { fail(usage) }
+        let display = target()
+        let ddc = channel(display)
+        let dump = try DDCDump.decoder.decode(DDCDump.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[1])))
+        guard dump.matches(display.identity) else { fail("that file is from \(dump.display.name ?? "another monitor"), not \(display.name)") }
+        let caps = try? ddc.capabilities()
+        let report = ddc.restore(dump.restorableState, allowColorDefaults: caps?.supports(.restoreColorDefaults) ?? false)
+        for m in report.mismatches { print("NOT restored: \(m.code) wanted \(m.wanted), is \(m.actual.map(String.init) ?? "unreadable")") }
+        print(report.succeeded ? "wrote back \(dump.restorableState.values.count) settings" : "some settings were not restored")
+        if !report.succeeded { exit(2) }
+    case "state":
+        guard arguments.count >= 2 else { fail(usage) }
+        let ddc = channel(target())
+        let caps = try? ddc.capabilities()
+        switch (arguments[1], arguments.count) {
+        case ("show", 2):
+            let state = ddc.captureState { caps?.supports($0) ?? true }
+            for code in state.values.keys.sorted() { print("\(VCPCode(code)) \(state.values[code]!)") }
+        case ("save", 3):
+            let state = ddc.captureState { caps?.supports($0) ?? true }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            try encoder.encode(state).write(to: URL(fileURLWithPath: arguments[2]))
+            print("saved \(state.values.count) settings")
+        case ("restore", 3):
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let state = try decoder.decode(DisplayState.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
+            let report = ddc.restore(state, allowColorDefaults: caps?.supports(.restoreColorDefaults) ?? false)
+            if report.usedColorDefaults { print("gains were refused; sent restore colour defaults (0x08)") }
+            if report.succeeded {
+                print("restored all \(state.values.count) settings")
+            } else {
+                for m in report.mismatches { print("NOT restored: \(m.code) wanted \(m.wanted), is \(m.actual.map(String.init) ?? "unreadable")") }
+                exit(2)
+            }
+        default:
+            fail(usage)
+        }
     default:
         fail(usage)
     }

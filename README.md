@@ -21,6 +21,13 @@ talks DDC/CI directly on Apple Silicon and adds a menu bar popover and a setting
 - **Snapshots**: save and re-apply complete setups (hardware, software and profile).
 - **`xeneonctl` CLI** for scripting, e.g. `xeneonctl set brightness 40`.
 
+## Xeneon Edge DDC/CI reference
+
+[docs/xeneon-edge-ddc.md](docs/xeneon-edge-ddc.md) documents every VCP code the Edge
+advertises: what each one controls, its range and factory value, and what happens when you
+write it. It also covers the quirks (RGB gains are read-only; leaving User 1 wipes its
+calibration) and how to recover. It applies to any tool on any OS, not only this app.
+
 ## Connection matters
 
 DDC/CI needs a link that carries it. **Connect the Edge over USB-C (DisplayPort Alt

@@ -115,6 +115,7 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
 
     @Test func gainScalesOneChannel() {
         var adjustment = SoftwareAdjustment()
+        adjustment.enabled = true
         adjustment.red = 0.5
         let out = GammaRamp.linear(count: 3).applying(adjustment)
         #expect(out.red == [0, 0.25, 0.5])
@@ -123,6 +124,7 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
 
     @Test func brightnessAndGammaCompose() {
         var adjustment = SoftwareAdjustment()
+        adjustment.enabled = true
         adjustment.brightness = 0.5
         adjustment.gamma = 2
         let out = GammaRamp.linear(count: 3).applying(adjustment)
@@ -133,12 +135,14 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
         // A non-linear baseline (as a calibrated profile's VCGT would load) is scaled, not replaced.
         let baseline = GammaRamp(red: [0, 0.3, 0.9], green: [0, 0.3, 0.9], blue: [0, 0.3, 0.9])
         var adjustment = SoftwareAdjustment()
+        adjustment.enabled = true
         adjustment.brightness = 0.5
         #expect(baseline.applying(adjustment).green == [0, 0.15, 0.45])
     }
 
     @Test func clampsOutOfRangeValues() {
         var adjustment = SoftwareAdjustment()
+        adjustment.enabled = true
         adjustment.red = 3
         adjustment.brightness = -1
         let out = GammaRamp.linear(count: 2).applying(adjustment)
@@ -156,5 +160,105 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
         #expect(VCPNames.colorPreset(0x0B) == "User 1")
         #expect(VCPNames.isUserPreset(0x0B))
         #expect(!VCPNames.isUserPreset(0x05))
+    }
+}
+
+@Suite struct WhitePointMath {
+    @Test func d65IsNearSRGBWhite() {
+        let (x, y) = WhitePoint.chromaticity(kelvin: 6504)
+        #expect(abs(x - 0.3127) < 0.0005 && abs(y - 0.3290) < 0.0005)
+    }
+
+    @Test func sameTargetIsIdentity() {
+        let g = WhitePoint.encodedGains(target: 6500, reference: 6500)
+        #expect(abs(g.red - 1) < 1e-9 && abs(g.green - 1) < 1e-9 && abs(g.blue - 1) < 1e-9)
+    }
+
+    @Test func warmerCutsBlueCoolerCutsRed() {
+        let warm = WhitePoint.encodedGains(target: 5003, reference: 6504)
+        #expect(warm.red == 1 && warm.blue < warm.green && warm.green < 1)
+        let cool = WhitePoint.encodedGains(target: 9305, reference: 6504)
+        #expect(cool.blue == 1 && cool.red < cool.green && cool.green < 1)
+    }
+
+    @Test func tenKelvinStepsAreDistinct() {
+        let a = WhitePoint.encodedGains(target: 5010, reference: 6500)
+        let b = WhitePoint.encodedGains(target: 5040, reference: 6500)
+        #expect(a.blue != b.blue)
+    }
+
+    @Test func whitePointFeedsTheRamp() {
+        var adjustment = SoftwareAdjustment()
+        adjustment.enabled = true
+        #expect(adjustment.isIdentity)
+        adjustment.whitePoint = 5000
+        #expect(!adjustment.isIdentity)
+        let out = GammaRamp.linear(count: 2).applying(adjustment)
+        #expect(out.red.last == 1 && out.blue.last! < 1)
+    }
+
+    @Test func decodesSettingsSavedBeforeWhitePoint() throws {
+        let old = #"{"brightness":0.5,"red":1,"green":1,"blue":1,"gamma":1}"#
+        let decoded = try JSONDecoder().decode(SoftwareAdjustment.self, from: Data(old.utf8))
+        #expect(decoded.brightness == 0.5 && decoded.whitePoint == 6500 && decoded.referenceWhitePoint == 6500)
+    }
+}
+
+@Suite struct DisplayStateDiffs {
+    @Test func reportsChangedCodes() {
+        let launch = DisplayState(values: [0x10: 95, 0x12: 50, 0x16: 151])
+        let now = DisplayState(values: [0x10: 60, 0x12: 50, 0x16: 255])
+        #expect(launch.differences(from: now) == [.brightness, .redGain])
+        #expect(launch.differences(from: launch).isEmpty)
+    }
+}
+
+@Suite struct GPUOptIn {
+    @Test func offByDefaultAndIgnoredWhileOff() {
+        var adjustment = SoftwareAdjustment()
+        #expect(!adjustment.enabled)
+        adjustment.brightness = 0.3
+        adjustment.whitePoint = 4000
+        #expect(adjustment.isIdentity)
+        let ramp = GammaRamp.linear(count: 4)
+        #expect(ramp.applying(adjustment) == ramp)
+        adjustment.enabled = true
+        #expect(!adjustment.isIdentity && ramp.applying(adjustment) != ramp)
+    }
+
+    @Test func savedAdjustmentsFromBeforeTheSwitchStayOff() throws {
+        let old = #"{"brightness":0.5,"red":1,"green":1,"blue":1,"gamma":1}"#
+        let decoded = try JSONDecoder().decode(SoftwareAdjustment.self, from: Data(old.utf8))
+        #expect(!decoded.enabled && decoded.isIdentity)
+    }
+}
+
+@Suite struct DumpFiles {
+    static func sample() -> DDCDump {
+        DDCDump(capturedAt: Date(timeIntervalSince1970: 1_790_000_000),
+                display: .init(name: "XENEON EDGE", manufacturerID: "CRX", vendor: 3672, model: 60672),
+                capabilities: edgeCapabilities,
+                values: [
+                    .init(code: "0x10", name: "Brightness", current: 95, maximum: 100, restorable: true),
+                    .init(code: "0x16", name: "Red gain", current: 151, maximum: 255, restorable: true),
+                    .init(code: "0xAE", name: "Vertical frequency", current: 6030, maximum: 65535, restorable: false),
+                ],
+                unanswered: ["0xFD", "0xFF"])
+    }
+
+    @Test func roundTripsThroughJSON() throws {
+        let data = try DDCDump.encoder.encode(Self.sample())
+        #expect(String(decoding: data, as: UTF8.self).contains(#""code" : "0x10""#))
+        #expect(try DDCDump.decoder.decode(DDCDump.self, from: data) == Self.sample())
+    }
+
+    @Test func writesBackOnlyRestorableValues() {
+        #expect(Self.sample().restorableState.values == [0x10: 95, 0x16: 151])
+    }
+
+    @Test func refusesAnotherModel() {
+        let edge = EDIDIdentity(vendor: 3672, model: 60672, serial: 0, name: nil)
+        let other = EDIDIdentity(vendor: 3672, model: 1, serial: 0, name: nil)
+        #expect(Self.sample().matches(edge) && !Self.sample().matches(other))
     }
 }

@@ -53,15 +53,12 @@ struct DisplaysPane: View {
 struct DisplayDetail: View {
     let app: AppModel
     let model: DisplayModel
-    @State private var confirmsFactoryReset = false
     @State private var importsProfile = false
 
     var body: some View {
         Form {
             if let message = model.message {
-                Section {
-                    Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
-                }
+                Section { NoticeLabel(notice: message) }
             }
             switch model.link {
             case .probing:
@@ -83,15 +80,14 @@ struct DisplayDetail: View {
             }
             profileSection
             Section {
-                SoftwareSliders(model: model)
+                GPUAdjustments(model: model) { SoftwareSliders(model: model) }
             } header: {
-                Text("Software adjustment (GPU)")
+                Text("GPU adjustments")
             } footer: {
-                FooterText("Scales the picture on top of the colour profile's calibration. It works on any connection and can dim below the backlight's minimum, but costs contrast, and it lasts only while Xeneon Control is running.")
+                FooterText("Off by default. When on, applied by the graphics card on top of the monitor and the colour profile's calibration. The white point moves from the preset's own white in 10 K steps; D50–D93 are the CIE daylight illuminants. It works on any connection and can dim below the backlight's minimum, but costs contrast, and it lasts only while Xeneon Control is running.")
             }
-            if model.link == .hardware, [.restoreColorDefaults, .restoreBrightnessContrast, .restoreFactoryDefaults].contains(where: model.advertises) {
-                resetSection
-            }
+            resetSection
+            if model.link == .hardware { DebugSection(model: model) }
             infoSection
         }
         .formStyle(.grouped)
@@ -106,7 +102,7 @@ struct DisplayDetail: View {
     }
 
     @ViewBuilder private var hardwareSections: some View {
-        Section("Picture") {
+        Section("Picture (monitor, DDC/CI)") {
             if model.supports(.brightness) {
                 VCPSlider(model: model, code: .brightness, title: "Brightness", systemImage: "sun.max")
             }
@@ -118,13 +114,15 @@ struct DisplayDetail: View {
             }
         }
         Section {
-            if model.supports(.colorPreset) { PresetPicker(model: model) }
-            if model.supports(.colorTemperatureRequest) { TemperatureSlider(model: model) }
+            if model.supports(.colorPreset) {
+                PresetPicker(model: model)
+                if !model.hardwareWhitePoints.isEmpty { HardwareWhitePointPicker(model: model) }
+            }
             if DisplayQuickControls.hasGains(model) { GainSliders(model: model) }
         } header: {
-            Text("Colour")
+            Text("Colour (monitor, DDC/CI)")
         } footer: {
-            FooterText("RGB gains set the white point in the monitor itself, before any colour profile. To calibrate, set the gains here first, then profile the display with your colorimeter.")
+            FooterText("Settings stored in the monitor itself, before any colour profile. To calibrate, choose these first, then profile the display with your colorimeter.")
         }
         if model.supports(.osdLanguage), let languages = model.capabilities?.vcp[.osdLanguage], !languages.isEmpty {
             Section("On-screen menu") {
@@ -175,23 +173,22 @@ struct DisplayDetail: View {
     }
 
     @ViewBuilder private var resetSection: some View {
-        Section("Reset") {
-            HStack {
-                if model.advertises(.restoreColorDefaults) {
-                    Button("Restore Colour Defaults") { model.restore(.restoreColorDefaults) }
-                }
-                if model.advertises(.restoreBrightnessContrast) {
-                    Button("Restore Brightness & Contrast") { model.restore(.restoreBrightnessContrast) }
-                }
-                Spacer()
-                if model.advertises(.restoreFactoryDefaults) {
-                    Button("Factory Reset…", role: .destructive) { confirmsFactoryReset = true }
-                }
+        Section {
+            RestoreButtons(model: model)
+            if let original = app.originals[model.id] {
+                Button("Restore Values from When First Seen") { app.restoreOriginal(of: model) }
+                    .disabled(model.isBusy)
+                    .help("Recorded \(original.state.capturedAt.formatted(date: .abbreviated, time: .shortened)), the first time Xeneon Control saw this display")
             }
-            .confirmationDialog("Reset \(model.name) to factory settings?", isPresented: $confirmsFactoryReset) {
-                Button("Factory Reset", role: .destructive) { model.restore(.restoreFactoryDefaults) }
-            } message: {
-                Text("Every setting in the monitor's on-screen menu returns to its default.")
+            if model.advertises(.restoreColorDefaults) {
+                Button("Restore Colour Defaults Only") { model.restore(.restoreColorDefaults) }
+                    .disabled(model.isBusy)
+            }
+        } header: {
+            Text("Restore")
+        } footer: {
+            if let launch = model.launchState {
+                FooterText("Previous values were read, without changing anything, at \(launch.capturedAt.formatted(date: .omitted, time: .shortened)) when Xeneon Control started. Every restore reads each value back and reports any the monitor refused.")
             }
         }
     }
@@ -317,5 +314,92 @@ struct FooterText: View {
         Text(text)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Reads every DDC/CI value into a table, saves it as JSON, and writes a saved file back.
+struct DebugSection: View {
+    let model: DisplayModel
+    @State private var pendingLoad: DDCDump?
+    @State private var loadError: String?
+
+    var body: some View {
+        Section {
+            HStack(spacing: 8) {
+                Button("Read All DDC Values") { model.readAllValues() }
+                Button("Save as JSON…") { save() }
+                    .disabled(model.lastDump == nil)
+                Spacer()
+                Button("Load JSON and Write Back…") { load() }
+            }
+            .disabled(model.isBusy)
+            if let loadError {
+                Text(loadError).font(.caption).foregroundStyle(.orange)
+            }
+            if let dump = model.lastDump {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+                    GridRow {
+                        Text("Code"); Text("Name"); Text("Value"); Text("Max"); Text("Written back")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    ForEach(dump.values, id: \.code) { value in
+                        GridRow {
+                            Text(value.code).monospaced()
+                            Text(value.name)
+                            Text(String(value.current)).monospacedDigit().gridColumnAlignment(.trailing)
+                            Text(String(value.maximum)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+                            Image(systemName: value.restorable ? "checkmark" : "minus")
+                                .foregroundStyle(value.restorable ? .primary : .tertiary)
+                                .accessibilityLabel(value.restorable ? "Written back" : "Read only")
+                        }
+                        .font(.callout)
+                    }
+                }
+                .textSelection(.enabled)
+                if !dump.unanswered.isEmpty {
+                    Text("No reply: \(dump.unanswered.joined(separator: ", "))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Debug")
+        } footer: {
+            FooterText("Reading changes nothing. Loading a file writes back only the settings marked ✓ (preset, gains, brightness, contrast, sharpness, menu language) in the same verified order as Restore, and only onto the same monitor model. Read-only values such as the refresh rate are recorded for reference.")
+        }
+        .confirmationDialog(pendingLoad.map { "Write \($0.restorableState.values.count) settings to \(model.name)?" } ?? "",
+                            isPresented: Binding(get: { pendingLoad != nil }, set: { if !$0 { pendingLoad = nil } })) {
+            Button("Write Back") {
+                if let dump = pendingLoad { model.writeBack(dump) }
+                pendingLoad = nil
+            }
+        } message: {
+            if let dump = pendingLoad {
+                Text("From a file saved \(dump.capturedAt.formatted(date: .abbreviated, time: .shortened)). Each value is read back afterwards, and any the monitor refuses are listed.")
+            }
+        }
+    }
+
+    private func save() {
+        guard let dump = model.lastDump, let data = try? DDCDump.encoder.encode(dump) else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        let stamp = dump.capturedAt.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false)).replacingOccurrences(of: ":", with: "")
+        panel.nameFieldStringValue = "\(model.name) DDC \(stamp).json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try data.write(to: url) } catch { loadError = "Couldn't save: \(error.localizedDescription)" }
+    }
+
+    private func load() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            pendingLoad = try DDCDump.decoder.decode(DDCDump.self, from: Data(contentsOf: url))
+            loadError = nil
+        } catch {
+            loadError = "That isn't a Xeneon Control DDC file: \(error.localizedDescription)"
+        }
     }
 }

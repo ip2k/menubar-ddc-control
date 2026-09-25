@@ -5,16 +5,50 @@ import Foundation
 /// any connection, including ones without DDC/CI, but it only rescales the signal: it
 /// cannot raise the backlight, and dimming this way costs contrast.
 public struct SoftwareAdjustment: Codable, Equatable, Sendable {
+    /// Off by default: until the user opts in, nothing is applied on the GPU and only the
+    /// monitor's own (DDC/CI) settings change the picture.
+    public var enabled = false
     public var brightness: Double = 1
     public var red: Double = 1
     public var green: Double = 1
     public var blue: Double = 1
     /// Exponent applied on top of the display's calibrated curve; 1 leaves it unchanged.
     public var gamma: Double = 1
+    /// Target white in kelvin, relative to `referenceWhitePoint` (the white the monitor
+    /// already produces); equal values leave the white point alone.
+    public var whitePoint: Double = 6500
+    public var referenceWhitePoint: Double = 6500
 
     public init() {}
+
+    // Settings saved before a field existed decode with that field's default.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        brightness = try c.decodeIfPresent(Double.self, forKey: .brightness) ?? 1
+        red = try c.decodeIfPresent(Double.self, forKey: .red) ?? 1
+        green = try c.decodeIfPresent(Double.self, forKey: .green) ?? 1
+        blue = try c.decodeIfPresent(Double.self, forKey: .blue) ?? 1
+        gamma = try c.decodeIfPresent(Double.self, forKey: .gamma) ?? 1
+        whitePoint = try c.decodeIfPresent(Double.self, forKey: .whitePoint) ?? 6500
+        referenceWhitePoint = try c.decodeIfPresent(Double.self, forKey: .referenceWhitePoint) ?? 6500
+    }
+
+    /// Per-channel gain combining the RGB balance with the white-point shift.
+    public var channelGains: (red: Double, green: Double, blue: Double) {
+        guard abs(whitePoint - referenceWhitePoint) >= 1 else { return (red, green, blue) }
+        let w = WhitePoint.encodedGains(target: whitePoint, reference: referenceWhitePoint)
+        return (red * w.red, green * w.green, blue * w.blue)
+    }
     public static let identity = SoftwareAdjustment()
-    public var isIdentity: Bool { self == .identity }
+    /// Whether applying this changes nothing (true whenever the adjustment is switched off).
+    public var isIdentity: Bool {
+        !enabled || valuesAreDefault
+    }
+
+    public var valuesAreDefault: Bool {
+        brightness == 1 && red == 1 && green == 1 && blue == 1 && gamma == 1 && abs(whitePoint - referenceWhitePoint) < 1
+    }
 
     public static let brightnessRange = 0.1...1.0
     public static let gainRange = 0.0...1.0
@@ -35,12 +69,14 @@ public struct GammaRamp: Equatable, Sendable {
     /// The ramp with `adjustment` applied on top of it: `out = in^gamma × gain × brightness`.
     /// Working from the current ramp keeps any calibration curve (VCGT) the ColorSync profile loaded.
     public func applying(_ adjustment: SoftwareAdjustment) -> GammaRamp {
+        guard adjustment.enabled else { return self }
         func map(_ channel: [CGGammaValue], _ gain: Double) -> [CGGammaValue] {
             let scale = CGGammaValue(min(max(gain, 0), 1) * min(max(adjustment.brightness, 0), 1))
             let exponent = CGGammaValue(adjustment.gamma)
             return channel.map { min(max(pow(max($0, 0), exponent) * scale, 0), 1) }
         }
-        return GammaRamp(red: map(red, adjustment.red), green: map(green, adjustment.green), blue: map(blue, adjustment.blue))
+        let gains = adjustment.channelGains
+        return GammaRamp(red: map(red, gains.red), green: map(green, gains.green), blue: map(blue, gains.blue))
     }
 }
 
