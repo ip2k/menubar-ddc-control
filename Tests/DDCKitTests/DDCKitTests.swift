@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import XeneonKit
+@testable import DDCKit
 
 /// The Edge's capabilities string, read over USB-C on 2026-09-25.
 let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 F3)vcp(02 04 05 06 08 0B 0C 10 12 14(01 02 04 05 06 08 0B) 16 18 1A 52 60(01 03 04 0F 10 11 12) 87 AC AE B2 B6 C6 C8 CA CC(01 02 03 04 06 0A 0D) D6(01 04 05) DF FD FF)mswhql(1)asset_eep(40)mccs_ver(2.2))"
@@ -260,5 +260,25 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
         let edge = EDIDIdentity(vendor: 3672, model: 60672, serial: 0, name: nil)
         let other = EDIDIdentity(vendor: 3672, model: 1, serial: 0, name: nil)
         #expect(Self.sample().matches(edge) && !Self.sample().matches(other))
+    }
+}
+
+@Suite struct Versions {
+    @Test func comparesNumerically() {
+        #expect(AppVersion("v0.10.0")! > AppVersion("0.9.9")!)
+        #expect(AppVersion("1.0")! == AppVersion("1.0.0")!)
+        #expect(AppVersion("1.0.0-beta.2")! < AppVersion("1.0.0")!)
+        #expect(AppVersion("1.0.0-beta.2")! < AppVersion("1.0.0-beta.10")!)
+        #expect(AppVersion("nightly") == nil)
+    }
+
+    @Test func offersOnlyNewerPublishedReleases() throws {
+        let json = #"{"tag_name":"v0.2.0","html_url":"https://github.com/ip2k/menubar-ddc-control/releases/tag/v0.2.0","body":"notes","draft":false,"prerelease":false,"assets":[{"name":"Menubar-DDC-Control-0.2.0.dmg","browser_download_url":"https://example.com/a.dmg"}]}"#
+        var release = try JSONDecoder().decode(GitHubRelease.self, from: Data(json.utf8))
+        #expect(release.isUpdate(over: AppVersion("0.1.0")!))
+        #expect(!release.isUpdate(over: AppVersion("0.2.0")!))
+        #expect(release.downloadURL.absoluteString == "https://example.com/a.dmg")
+        release.prerelease = true
+        #expect(!release.isUpdate(over: AppVersion("0.1.0")!))
     }
 }

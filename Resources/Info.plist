@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Xeneon Control</string>
+	<string>Menubar DDC Control</string>
 	<key>CFBundleExecutable</key>
-	<string>XeneonControl</string>
+	<string>MenubarDDCControl</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.ip2k.XeneonControl</string>
+	<string>com.ip2k.MenubarDDCControl</string>
 	<key>CFBundleName</key>
-	<string>Xeneon Control</string>
+	<string>Menubar DDC Control</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

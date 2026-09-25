@@ -1,0 +1,82 @@
+name: Release
+
+# Push a tag like v0.2.0 whose version has a "## [0.2.0]" section in CHANGELOG.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.build.outputs.version }}
+      sha256: ${{ steps.build.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Test
+        run: swift test
+      - name: Build app and disk image
+        id: build
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          VERSION="$version" ./scripts/build-app.sh
+          dmg="$(./scripts/make-dmg.sh)"
+          sha="$(shasum -a 256 "$dmg" | cut -d' ' -f1)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${{ steps.build.outputs.version }}"
+          awk -v h="## [$version]" 'index($0, "## [") == 1 { f = (index($0, h) == 1); next } f' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "CHANGELOG.md has no '## [$version]' section" >&2
+            exit 1
+          fi
+          cat >> notes.md <<NOTES
+
+          ### Install
+
+          Download the disk image below, or with Homebrew:
+
+          \`\`\`sh
+          brew tap ip2k/menubar-ddc-control https://github.com/ip2k/menubar-ddc-control
+          brew install --cask menubar-ddc-control
+          \`\`\`
+
+          The app is not notarized; see the README for opening it the first time.
+
+          SHA-256 of the disk image: \`${{ steps.build.outputs.sha256 }}\`
+          NOTES
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "${{ steps.build.outputs.dmg }}" \
+            --title "Menubar DDC Control ${{ steps.build.outputs.version }}" --notes-file notes.md
+
+  cask:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Point the Homebrew cask at the new release
+        run: |
+          version="${{ needs.release.outputs.version }}"
+          sha="${{ needs.release.outputs.sha256 }}"
+          sed -i -e "s/^  version \".*\"/  version \"$version\"/" -e "s/^  sha256 \".*\"/  sha256 \"$sha\"/" Casks/menubar-ddc-control.rb
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Update Homebrew cask to $version"
+          git push origin HEAD:main

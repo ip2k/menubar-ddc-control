@@ -20,7 +20,7 @@ public struct DDCDump: Codable, Equatable, Sendable {
         public var restorable: Bool
     }
 
-    public var format = "xeneonkit-ddc-dump/1"
+    public var format = "ddckit-dump/1"
     public var capturedAt: Date
     public var display: Display
     public var capabilities: String

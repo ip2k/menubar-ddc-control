@@ -1,19 +1,25 @@
 import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
-import XeneonKit
+import DDCKit
 
 struct SettingsView: View {
     @Bindable var app: AppModel
+    let updates: UpdateChecker
+
+    @AppStorage("settingsTab") private var tab = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             DisplaysPane(app: app)
                 .tabItem { Label("Displays", systemImage: "display") }
+                .tag(0)
             SnapshotsPane(app: app)
                 .tabItem { Label("Snapshots", systemImage: "camera.filters") }
-            GeneralPane(app: app)
+                .tag(1)
+            GeneralPane(app: app, updates: updates)
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(2)
         }
         .frame(minWidth: 760, minHeight: 560)
     }
@@ -84,7 +90,7 @@ struct DisplayDetail: View {
             } header: {
                 Text("GPU adjustments")
             } footer: {
-                FooterText("Off by default. When on, applied by the graphics card on top of the monitor and the colour profile's calibration. The white point moves from the preset's own white in 10 K steps; D50–D93 are the CIE daylight illuminants. It works on any connection and can dim below the backlight's minimum, but costs contrast, and it lasts only while Xeneon Control is running.")
+                FooterText("Off by default. When on, applied by the graphics card on top of the monitor and the colour profile's calibration. The white point moves from the preset's own white in 10 K steps; D50–D93 are the CIE daylight illuminants. It works on any connection and can dim below the backlight's minimum, but costs contrast, and it lasts only while Menubar DDC Control is running.")
             }
             resetSection
             if model.link == .hardware { DebugSection(model: model) }
@@ -178,7 +184,7 @@ struct DisplayDetail: View {
             if let original = app.originals[model.id] {
                 Button("Restore Values from When First Seen") { app.restoreOriginal(of: model) }
                     .disabled(model.isBusy)
-                    .help("Recorded \(original.state.capturedAt.formatted(date: .abbreviated, time: .shortened)), the first time Xeneon Control saw this display")
+                    .help("Recorded \(original.state.capturedAt.formatted(date: .abbreviated, time: .shortened)), the first time Menubar DDC Control saw this display")
             }
             if model.advertises(.restoreColorDefaults) {
                 Button("Restore Colour Defaults Only") { model.restore(.restoreColorDefaults) }
@@ -188,7 +194,7 @@ struct DisplayDetail: View {
             Text("Restore")
         } footer: {
             if let launch = model.launchState {
-                FooterText("Previous values were read, without changing anything, at \(launch.capturedAt.formatted(date: .omitted, time: .shortened)) when Xeneon Control started. Every restore reads each value back and reports any the monitor refused.")
+                FooterText("Previous values were read, without changing anything, at \(launch.capturedAt.formatted(date: .omitted, time: .shortened)) when Menubar DDC Control started. Every restore reads each value back and reports any the monitor refused.")
             }
         }
     }
@@ -274,6 +280,7 @@ struct SnapshotsPane: View {
 
 struct GeneralPane: View {
     let app: AppModel
+    @Bindable var updates: UpdateChecker
     @State private var launchesAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -300,6 +307,8 @@ struct GeneralPane: View {
                 Button("Rescan Displays") { app.rescan() }
                 Button("Reload Colour Profiles") { app.reloadProfiles() }
             }
+            UpdatesSection(updates: updates)
+            AboutSection()
         }
         .formStyle(.grouped)
     }
@@ -399,7 +408,77 @@ struct DebugSection: View {
             pendingLoad = try DDCDump.decoder.decode(DDCDump.self, from: Data(contentsOf: url))
             loadError = nil
         } catch {
-            loadError = "That isn't a Xeneon Control DDC file: \(error.localizedDescription)"
+            loadError = "That isn't a Menubar DDC Control DDC file: \(error.localizedDescription)"
         }
+    }
+}
+
+struct UpdatesSection: View {
+    @Bindable var updates: UpdateChecker
+
+    var body: some View {
+        Section {
+            Toggle("Check for updates automatically (weekly)", isOn: $updates.checksAutomatically)
+            HStack(spacing: 12) {
+                Button("Check Now") { Task { await updates.check(userInitiated: true) } }
+                    .disabled(updates.status == .checking)
+                statusText
+                Spacer()
+            }
+            if let last = updates.lastChecked {
+                LabeledContent("Last checked", value: last.formatted(date: .abbreviated, time: .shortened))
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            FooterText("Asks GitHub for the latest release of \(UpdateChecker.repository). Nothing is downloaded or installed without you choosing to\(UpdateChecker.installedWithHomebrew ? "; this copy came from Homebrew, so updates use brew upgrade" : "").")
+        }
+    }
+
+    @ViewBuilder private var statusText: some View {
+        switch updates.status {
+        case .idle: EmptyView()
+        case .checking: ProgressView().controlSize(.small)
+        case .upToDate: Text("You're up to date.").foregroundStyle(.secondary)
+        case .available(let version): Text("Version \(version) is available.")
+        case .failed(let reason): Text("Couldn't check: \(reason)").foregroundStyle(.orange)
+        }
+    }
+}
+
+/// Exactly which build this is: the values scripts/build-app.sh stamped into Info.plist.
+struct AboutSection: View {
+    private let info = Bundle.main.infoDictionary ?? [:]
+
+    var body: some View {
+        Section("About") {
+            LabeledContent("Version", value: "\(string("CFBundleShortVersionString")) (build \(string("CFBundleVersion")))")
+            LabeledContent("Commit") {
+                let commit = string("DDCGitCommit")
+                HStack(spacing: 6) {
+                    if commit.count == 40, let url = URL(string: "https://github.com/\(UpdateChecker.repository)/commit/\(commit)") {
+                        Link(String(commit.prefix(12)), destination: url).monospaced()
+                    } else {
+                        Text(commit).monospaced()
+                    }
+                    if info["DDCGitDirty"] as? Bool == true {
+                        Text("+ local changes").foregroundStyle(.orange)
+                    }
+                }
+                .textSelection(.enabled)
+            }
+            LabeledContent("Built", value: "\(string("DDCBuildDate")), \(string("DDCBuildOrigin"))")
+            LabeledContent("Source") {
+                Link("github.com/\(UpdateChecker.repository)", destination: URL(string: "https://github.com/\(UpdateChecker.repository)")!)
+            }
+            LabeledContent("Licence", value: "MIT")
+            Text("Not affiliated with or endorsed by CORSAIR. XENEON is a trademark of CORSAIR MEMORY, Inc.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func string(_ key: String) -> String {
+        (info[key] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "unknown (development build)"
     }
 }

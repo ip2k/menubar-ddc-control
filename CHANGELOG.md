@@ -5,7 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-25
+
+First public release.
+
 ### Added
+
+- Downloadable disk image and a Homebrew cask (`brew tap ip2k/menubar-ddc-control …`).
+- A weekly check for new releases on GitHub, on by default and switchable in Settings → General,
+  with Check Now. It prompts when a newer version exists, and suggests `brew upgrade` for Homebrew installs.
+- Settings → General → About: version, build, commit, build date and a link to the source.
 
 - Menu bar app with quick controls for brightness, contrast, colour preset, white point and
   colour balance, and a settings window with every control the monitor advertises.
@@ -16,7 +25,7 @@ All notable changes to this project are documented here. The format follows
   the built-in HDMI port on M1 Pro/Max MacBook Pros. It stacks on top of the profile's calibration.
 - Snapshots that save and re-apply a display's full setup.
 - Open at login.
-- `xeneonctl` command-line tool: `list`, `caps`, `get`, `set`, `profiles`, `profile`, and
+- `ddc-control` command-line tool: `list`, `caps`, `get`, `set`, `profiles`, `profile`, and
   `state show|save|restore` to save a monitor's settings to a file and put them back.
 - **Restore Previous Values**: every monitor's settings are read, without changing anything,
   when the app starts, and one click puts them back (including the colour profile), checking
@@ -35,7 +44,7 @@ All notable changes to this project are documented here. The format follows
   another preset reset it.
 - Debug tools in Settings: read every DDC/CI value into a table, save it as JSON, and load a saved
   file to write its settings back (same monitor model only; verified afterwards).
-  `xeneonctl dump` and `xeneonctl load` do the same from the command line.
+  `ddc-control dump` and `ddc-control load` do the same from the command line.
 
 ### Documentation
 
@@ -53,4 +62,4 @@ All notable changes to this project are documented here. The format follows
 - A note under the preset menu explains that some presets on the Xeneon Edge can reset User 1's
   factory calibration, and that switching back restores it.
 - Information messages no longer look like warnings.
-- Running the app and `xeneonctl` at the same time no longer produces wrong readings.
+- Running the app and `ddc-control` at the same time no longer produces wrong readings.

@@ -20,14 +20,14 @@ public final class DDCChannel: @unchecked Sendable {
 
     init(service: CFTypeRef, label: String) {
         self.service = service
-        queue = DispatchQueue(label: "XeneonKit.DDC.\(label)", qos: .userInitiated)
+        queue = DispatchQueue(label: "DDCKit.DDC.\(label)", qos: .userInitiated)
     }
 
-    /// One lock file shared by every process using XeneonKit (the app and `xeneonctl`).
+    /// One lock file shared by every process using DDCKit (the app and `ddc-control`).
     /// Without it, two processes interleave transactions on the bus and read each other's
     /// replies, which pass the checksum but belong to the wrong request.
     private static let busLockDescriptor: Int32 = open(
-        FileManager.default.temporaryDirectory.appending(path: "XeneonKit-DDC.lock").path, O_CREAT | O_RDWR, 0o600
+        FileManager.default.temporaryDirectory.appending(path: "DDCKit.lock").path, O_CREAT | O_RDWR, 0o600
     )
 
     private func withBusLock<T>(_ body: () throws -> T) rethrows -> T {

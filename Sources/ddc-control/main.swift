@@ -1,8 +1,8 @@
 import Foundation
-import XeneonKit
+import DDCKit
 
 let usage = """
-usage: xeneonctl [--display <name>] <command>
+usage: ddc-control [--display <name>] <command>
 
   list                      external displays and whether they answer DDC/CI
   caps                      the display's capabilities string, parsed
