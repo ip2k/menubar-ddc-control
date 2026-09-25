@@ -23,6 +23,20 @@ public final class DDCChannel: @unchecked Sendable {
         queue = DispatchQueue(label: "XeneonKit.DDC.\(label)", qos: .userInitiated)
     }
 
+    /// One lock file shared by every process using XeneonKit (the app and `xeneonctl`).
+    /// Without it, two processes interleave transactions on the bus and read each other's
+    /// replies, which pass the checksum but belong to the wrong request.
+    private static let busLockDescriptor: Int32 = open(
+        FileManager.default.temporaryDirectory.appending(path: "XeneonKit-DDC.lock").path, O_CREAT | O_RDWR, 0o600
+    )
+
+    private func withBusLock<T>(_ body: () throws -> T) rethrows -> T {
+        let fd = Self.busLockDescriptor
+        if fd >= 0 { flock(fd, LOCK_EX) }
+        defer { if fd >= 0 { flock(fd, LOCK_UN) } }
+        return try body()
+    }
+
     // MARK: Blocking primitives (called on `queue`)
 
     private func write(_ bytes: [UInt8]) throws {
@@ -48,9 +62,12 @@ public final class DDCChannel: @unchecked Sendable {
         var lastError: DDCError = .noReply
         for _ in 0..<max(attempts, 1) {
             do {
-                try write(request)
-                pause()
-                if let parsed = parse(try read(count: replyLength)) { return parsed }
+                let parsed = try withBusLock {
+                    try write(request)
+                    pause()
+                    return parse(try read(count: replyLength))
+                }
+                if let parsed { return parsed }
                 lastError = .noReply
             } catch let error as DDCError {
                 lastError = error
@@ -78,8 +95,10 @@ public final class DDCChannel: @unchecked Sendable {
 
     public func writeVCP(_ code: VCPCode, _ value: UInt16) throws {
         try queue.sync {
-            try write(DDCProtocol.setVCP(code, value))
-            pause()
+            try withBusLock {
+                try write(DDCProtocol.setVCP(code, value))
+                pause()
+            }
         }
     }
 
@@ -121,11 +140,13 @@ public final class DDCChannel: @unchecked Sendable {
                 pendingWrites[code] = nil
                 lock.unlock()
                 do {
-                    try write(DDCProtocol.setVCP(code, value))
+                    try withBusLock {
+                        try write(DDCProtocol.setVCP(code, value))
+                        pause()
+                    }
                 } catch let error as DDCError {
                     onWriteError?(code, error)
                 } catch {}
-                pause()
             }
         }
     }

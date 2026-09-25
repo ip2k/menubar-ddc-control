@@ -53,7 +53,6 @@ struct DisplaysPane: View {
 struct DisplayDetail: View {
     let app: AppModel
     let model: DisplayModel
-    @State private var confirmsFactoryReset = false
     @State private var importsProfile = false
 
     var body: some View {
@@ -87,11 +86,9 @@ struct DisplayDetail: View {
             } header: {
                 Text("Software adjustment (GPU)")
             } footer: {
-                FooterText("Scales the picture on top of the colour profile's calibration. It works on any connection and can dim below the backlight's minimum, but costs contrast, and it lasts only while Xeneon Control is running.")
+                FooterText("Applied on top of the colour profile's calibration. The white point moves from the preset's own white in 10 K steps; D50–D93 are the CIE daylight illuminants. It works on any connection and can dim below the backlight's minimum, but costs contrast, and it lasts only while Xeneon Control is running.")
             }
-            if model.link == .hardware, [.restoreColorDefaults, .restoreBrightnessContrast, .restoreFactoryDefaults].contains(where: model.advertises) {
-                resetSection
-            }
+            resetSection
             infoSection
         }
         .formStyle(.grouped)
@@ -119,12 +116,14 @@ struct DisplayDetail: View {
         }
         Section {
             if model.supports(.colorPreset) { PresetPicker(model: model) }
-            if model.supports(.colorTemperatureRequest) { TemperatureSlider(model: model) }
+            if let kelvin = model.presetKelvin {
+                LabeledContent("Preset white point", value: "\(kelvin) K")
+            }
             if DisplayQuickControls.hasGains(model) { GainSliders(model: model) }
         } header: {
-            Text("Colour")
+            Text("Colour (monitor)")
         } footer: {
-            FooterText("RGB gains set the white point in the monitor itself, before any colour profile. To calibrate, set the gains here first, then profile the display with your colorimeter.")
+            FooterText("Settings stored in the monitor itself, before any colour profile. To calibrate, choose these first, then profile the display with your colorimeter.")
         }
         if model.supports(.osdLanguage), let languages = model.capabilities?.vcp[.osdLanguage], !languages.isEmpty {
             Section("On-screen menu") {
@@ -175,23 +174,22 @@ struct DisplayDetail: View {
     }
 
     @ViewBuilder private var resetSection: some View {
-        Section("Reset") {
-            HStack {
-                if model.advertises(.restoreColorDefaults) {
-                    Button("Restore Colour Defaults") { model.restore(.restoreColorDefaults) }
-                }
-                if model.advertises(.restoreBrightnessContrast) {
-                    Button("Restore Brightness & Contrast") { model.restore(.restoreBrightnessContrast) }
-                }
-                Spacer()
-                if model.advertises(.restoreFactoryDefaults) {
-                    Button("Factory Reset…", role: .destructive) { confirmsFactoryReset = true }
-                }
+        Section {
+            RestoreButtons(model: model)
+            if let original = app.originals[model.id] {
+                Button("Restore Values from When First Seen") { app.restoreOriginal(of: model) }
+                    .disabled(model.isBusy)
+                    .help("Recorded \(original.state.capturedAt.formatted(date: .abbreviated, time: .shortened)), the first time Xeneon Control saw this display")
             }
-            .confirmationDialog("Reset \(model.name) to factory settings?", isPresented: $confirmsFactoryReset) {
-                Button("Factory Reset", role: .destructive) { model.restore(.restoreFactoryDefaults) }
-            } message: {
-                Text("Every setting in the monitor's on-screen menu returns to its default.")
+            if model.advertises(.restoreColorDefaults) {
+                Button("Restore Colour Defaults Only") { model.restore(.restoreColorDefaults) }
+                    .disabled(model.isBusy)
+            }
+        } header: {
+            Text("Restore")
+        } footer: {
+            if let launch = model.launchState {
+                FooterText("Previous values were read, without changing anything, at \(launch.capturedAt.formatted(date: .omitted, time: .shortened)) when Xeneon Control started. Every restore reads each value back and reports any the monitor refused.")
             }
         }
     }

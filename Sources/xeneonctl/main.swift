@@ -10,6 +10,9 @@ usage: xeneonctl [--display <name>] <command>
   set <code> <value>        write a VCP code
   profiles                  installed display ICC profiles
   profile [<path>|factory]  show, assign or reset the display's ICC profile
+  state show                print every restorable setting (read-only)
+  state save <file>         save them as JSON (read-only)
+  state restore <file>      write a saved state back and verify it
 
 names: brightness contrast preset red green blue sharpness temperature language
 The default display is the Xeneon Edge, else the first external display.
@@ -93,6 +96,36 @@ do {
         }
         let current = ICCProfiles.current(for: display.id)
         print(current.map { "\($0.name)\t\($0.url.path)" } ?? "unknown")
+    case "state":
+        guard arguments.count >= 2 else { fail(usage) }
+        let ddc = channel(target())
+        let caps = try? ddc.capabilities()
+        switch (arguments[1], arguments.count) {
+        case ("show", 2):
+            let state = ddc.captureState { caps?.supports($0) ?? true }
+            for code in state.values.keys.sorted() { print("\(VCPCode(code)) \(state.values[code]!)") }
+        case ("save", 3):
+            let state = ddc.captureState { caps?.supports($0) ?? true }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            try encoder.encode(state).write(to: URL(fileURLWithPath: arguments[2]))
+            print("saved \(state.values.count) settings")
+        case ("restore", 3):
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let state = try decoder.decode(DisplayState.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
+            let report = ddc.restore(state, allowColorDefaults: caps?.supports(.restoreColorDefaults) ?? false)
+            if report.usedColorDefaults { print("gains were refused; sent restore colour defaults (0x08)") }
+            if report.succeeded {
+                print("restored all \(state.values.count) settings")
+            } else {
+                for m in report.mismatches { print("NOT restored: \(m.code) wanted \(m.wanted), is \(m.actual.map(String.init) ?? "unreadable")") }
+                exit(2)
+            }
+        default:
+            fail(usage)
+        }
     default:
         fail(usage)
     }

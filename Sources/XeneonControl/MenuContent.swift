@@ -5,12 +5,14 @@ import XeneonKit
 struct MenuContent: View {
     @Bindable var app: AppModel
     @Environment(\.openSettings) private var openSettings
+    @State private var contentHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
             if let model = app.selected {
                 DisplayQuickControls(model: model)
+                RestoreButtons(model: model)
                 snapshotMenu(for: model)
             } else {
                 Text("No external display connected.")
@@ -30,6 +32,9 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 340)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+        .background(FitWindowToContent(height: contentHeight))
         .task(id: app.selected?.id) { await app.selected?.refresh() }
     }
 
@@ -63,8 +68,8 @@ struct MenuContent: View {
 }
 
 struct DisplayQuickControls: View {
-    let model: DisplayModel
-    @State private var showsBalance = false
+    @Bindable var model: DisplayModel
+    @AppStorage("showsColourBalance") private var showsBalance = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -72,7 +77,7 @@ struct DisplayQuickControls: View {
             case .probing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Talking to the display…").foregroundStyle(.secondary)
+                    Text("Reading the display's current settings…").foregroundStyle(.secondary)
                 }
             case .hardware:
                 if model.supports(.brightness) {
@@ -82,12 +87,22 @@ struct DisplayQuickControls: View {
                     VCPSlider(model: model, code: .contrast, title: "Contrast", systemImage: "circle.lefthalf.filled")
                 }
                 if model.supports(.colorPreset) { PresetPicker(model: model) }
-                if model.supports(.colorTemperatureRequest), !model.isUserPresetActive { TemperatureSlider(model: model) }
-                if Self.hasGains(model) {
-                    DisclosureGroup("Colour balance", isExpanded: $showsBalance) {
-                        GainSliders(model: model).padding(.top, 8)
+                WhitePointSlider(model: model)
+                GammaSlider(model: model)
+                DisclosureGroup("Colour balance", isExpanded: $showsBalance) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if Self.hasGains(model), !DisplayModel.gainCodes.allSatisfy(model.ignoredCodes.contains) {
+                            GainSliders(model: model)
+                            Divider()
+                        }
+                        SoftwareBalanceSliders(model: model)
                     }
+                    .padding(.top, 8)
                 }
+                Text("White point, gamma and the percentage colour balance are applied by the GPU, on top of the colour profile.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             case .softwareOnly:
                 Text("This connection doesn't carry DDC/CI, so the monitor can't be adjusted directly. These controls change the picture in the GPU instead.")
                     .font(.caption)
@@ -96,9 +111,10 @@ struct DisplayQuickControls: View {
                 SoftwareSliders(model: model)
             }
             if let message = model.message {
-                Label(message, systemImage: "exclamationmark.triangle")
+                Label(message, systemImage: "info.circle")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

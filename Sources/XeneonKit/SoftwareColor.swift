@@ -11,10 +11,35 @@ public struct SoftwareAdjustment: Codable, Equatable, Sendable {
     public var blue: Double = 1
     /// Exponent applied on top of the display's calibrated curve; 1 leaves it unchanged.
     public var gamma: Double = 1
+    /// Target white in kelvin, relative to `referenceWhitePoint` (the white the monitor
+    /// already produces); equal values leave the white point alone.
+    public var whitePoint: Double = 6500
+    public var referenceWhitePoint: Double = 6500
 
     public init() {}
+
+    // Settings saved before a field existed decode with that field's default.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        brightness = try c.decodeIfPresent(Double.self, forKey: .brightness) ?? 1
+        red = try c.decodeIfPresent(Double.self, forKey: .red) ?? 1
+        green = try c.decodeIfPresent(Double.self, forKey: .green) ?? 1
+        blue = try c.decodeIfPresent(Double.self, forKey: .blue) ?? 1
+        gamma = try c.decodeIfPresent(Double.self, forKey: .gamma) ?? 1
+        whitePoint = try c.decodeIfPresent(Double.self, forKey: .whitePoint) ?? 6500
+        referenceWhitePoint = try c.decodeIfPresent(Double.self, forKey: .referenceWhitePoint) ?? 6500
+    }
+
+    /// Per-channel gain combining the RGB balance with the white-point shift.
+    public var channelGains: (red: Double, green: Double, blue: Double) {
+        guard abs(whitePoint - referenceWhitePoint) >= 1 else { return (red, green, blue) }
+        let w = WhitePoint.encodedGains(target: whitePoint, reference: referenceWhitePoint)
+        return (red * w.red, green * w.green, blue * w.blue)
+    }
     public static let identity = SoftwareAdjustment()
-    public var isIdentity: Bool { self == .identity }
+    public var isIdentity: Bool {
+        brightness == 1 && red == 1 && green == 1 && blue == 1 && gamma == 1 && abs(whitePoint - referenceWhitePoint) < 1
+    }
 
     public static let brightnessRange = 0.1...1.0
     public static let gainRange = 0.0...1.0
@@ -40,7 +65,8 @@ public struct GammaRamp: Equatable, Sendable {
             let exponent = CGGammaValue(adjustment.gamma)
             return channel.map { min(max(pow(max($0, 0), exponent) * scale, 0), 1) }
         }
-        return GammaRamp(red: map(red, adjustment.red), green: map(green, adjustment.green), blue: map(blue, adjustment.blue))
+        let gains = adjustment.channelGains
+        return GammaRamp(red: map(red, gains.red), green: map(green, gains.green), blue: map(blue, gains.blue))
     }
 }
 

@@ -158,3 +158,52 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
         #expect(!VCPNames.isUserPreset(0x05))
     }
 }
+
+@Suite struct WhitePointMath {
+    @Test func d65IsNearSRGBWhite() {
+        let (x, y) = WhitePoint.chromaticity(kelvin: 6504)
+        #expect(abs(x - 0.3127) < 0.0005 && abs(y - 0.3290) < 0.0005)
+    }
+
+    @Test func sameTargetIsIdentity() {
+        let g = WhitePoint.encodedGains(target: 6500, reference: 6500)
+        #expect(abs(g.red - 1) < 1e-9 && abs(g.green - 1) < 1e-9 && abs(g.blue - 1) < 1e-9)
+    }
+
+    @Test func warmerCutsBlueCoolerCutsRed() {
+        let warm = WhitePoint.encodedGains(target: 5003, reference: 6504)
+        #expect(warm.red == 1 && warm.blue < warm.green && warm.green < 1)
+        let cool = WhitePoint.encodedGains(target: 9305, reference: 6504)
+        #expect(cool.blue == 1 && cool.red < cool.green && cool.green < 1)
+    }
+
+    @Test func tenKelvinStepsAreDistinct() {
+        let a = WhitePoint.encodedGains(target: 5010, reference: 6500)
+        let b = WhitePoint.encodedGains(target: 5040, reference: 6500)
+        #expect(a.blue != b.blue)
+    }
+
+    @Test func whitePointFeedsTheRamp() {
+        var adjustment = SoftwareAdjustment()
+        #expect(adjustment.isIdentity)
+        adjustment.whitePoint = 5000
+        #expect(!adjustment.isIdentity)
+        let out = GammaRamp.linear(count: 2).applying(adjustment)
+        #expect(out.red.last == 1 && out.blue.last! < 1)
+    }
+
+    @Test func decodesSettingsSavedBeforeWhitePoint() throws {
+        let old = #"{"brightness":0.5,"red":1,"green":1,"blue":1,"gamma":1}"#
+        let decoded = try JSONDecoder().decode(SoftwareAdjustment.self, from: Data(old.utf8))
+        #expect(decoded.brightness == 0.5 && decoded.whitePoint == 6500 && decoded.referenceWhitePoint == 6500)
+    }
+}
+
+@Suite struct DisplayStateDiffs {
+    @Test func reportsChangedCodes() {
+        let launch = DisplayState(values: [0x10: 95, 0x12: 50, 0x16: 151])
+        let now = DisplayState(values: [0x10: 60, 0x12: 50, 0x16: 255])
+        #expect(launch.differences(from: now) == [.brightness, .redGain])
+        #expect(launch.differences(from: launch).isEmpty)
+    }
+}

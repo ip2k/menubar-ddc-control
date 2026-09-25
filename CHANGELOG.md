@@ -16,4 +16,23 @@ All notable changes to this project are documented here. The format follows
   the built-in HDMI port on M1 Pro/Max MacBook Pros. It stacks on top of the profile's calibration.
 - Snapshots that save and re-apply a display's full setup.
 - Open at login.
-- `xeneonctl` command-line tool: `list`, `caps`, `get`, `set`, `profiles`, `profile`.
+- `xeneonctl` command-line tool: `list`, `caps`, `get`, `set`, `profiles`, `profile`, and
+  `state show|save|restore` to save a monitor's settings to a file and put them back.
+- **Restore Previous Values**: every monitor's settings are read, without changing anything,
+  when the app starts, and one click puts them back (including the colour profile), checking
+  each value afterwards. A copy from the first time each monitor was seen is kept too.
+- **Reset Values to Factory Defaults**, with a confirmation step.
+- White point from 3000 to 9300 K in 10 K steps, with D50, D65, D75 and D93 marks you can tap.
+- Gamma in the menu bar popover.
+
+### Fixed
+
+- Expanding Colour balance no longer pushes Settings and Quit out of the popover.
+- The white point slider no longer jumps between 5000, 6500, 7500 and 9300 K. Those were the
+  monitor's presets; the white point is now adjusted smoothly on the GPU instead, so the
+  monitor's own calibration is never touched.
+- The Xeneon Edge's RGB gains are shown read-only: the monitor ignores changes to them, and
+  a slider that did nothing was misleading.
+- A warning now explains that choosing another preset on the Xeneon Edge resets User 1's factory
+  calibration, and that Restore Previous Values brings it back.
+- Running the app and `xeneonctl` at the same time no longer produces wrong readings.

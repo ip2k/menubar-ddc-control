@@ -43,3 +43,25 @@ public enum DisplayDirectory {
         return displays.sorted { $0.isXeneonEdge && !$1.isXeneonEdge }
     }
 }
+
+/// Behaviour of specific monitors that their capabilities strings don't reveal.
+public struct DisplayQuirks: Sendable {
+    /// Acknowledges RGB gain writes over DDC/CI but keeps the old values.
+    public var ignoresGainWrites = false
+    /// Selecting a factory preset resets the User preset's gains; 0x08 restores them.
+    public var leavingUserPresetResetsGains = false
+
+    public static func of(_ identity: EDIDIdentity) -> DisplayQuirks {
+        var quirks = DisplayQuirks()
+        // CORSAIR XENEON EDGE ("CRX", product 0xED00), verified 2026-09-25.
+        if identity.manufacturerID == "CRX", identity.model == 0xED00 {
+            quirks.ignoresGainWrites = true
+            quirks.leavingUserPresetResetsGains = true
+        }
+        return quirks
+    }
+}
+
+extension ExternalDisplay {
+    public var quirks: DisplayQuirks { .of(identity) }
+}
