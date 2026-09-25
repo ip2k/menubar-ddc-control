@@ -114,16 +114,16 @@ Each preset's own `0x0C` reading: `04` → 20, `05` → 35, `06` → 45, `08` �
    `04`, `05`, `06`, `08`). User 1 also sits at 6500 K, with its own calibration. Nothing in
    between is possible in hardware. **Fine white-point control isn't possible in hardware.** Gains are read-only and `0x0C`
    only picks presets, so a smooth white point has to be done on the host (GPU gamma tables).
-   Xeneon Control does this relative to the preset's own white.
+   Menubar DDC Control does this relative to the preset's own white.
 2. **Prefer User 1.** It holds the factory calibration (151/127/139). The temperature presets
    are safe to visit, but sRGB/Native (or `0x0C` writes) can wipe it until `0x08`. Before
    leaving User 1, save its values. On return, if the gains came back wrong, send `0x08`, then
-   rewrite brightness and contrast. Xeneon Control does this automatically.
+   rewrite brightness and contrast. Menubar DDC Control does this automatically.
 3. **Verify every write by reading it back.** The monitor acknowledges writes it ignores,
    so a successful write call proves nothing.
 4. **Never let two programs talk to the bus at once.** Interleaved transactions from two
    processes produced replies that passed the checksum but belonged to the wrong request
-   (brightness read as 16). Serialise access across processes; XeneonKit takes an `flock` on a
+   (brightness read as 16). Serialise access across processes; DDCKit takes an `flock` on a
    shared lock file around each transaction.
 5. **Timing:** 50 ms after each write before the next message is enough; replies were
    reliable at 40–200 ms. Always validate the reply checksum (XOR with `0x50`) and retry: a
@@ -139,14 +139,14 @@ If the Edge suddenly looks too bright, blue or washed out, User 1 has probably l
 4. Read back: `0x16/0x18/0x1A` should be 151/127/139. Rewrite brightness (`0x10`) and
    contrast (`0x12`) if they changed.
 
-With this repo: `xeneonctl set 0x08 1`, then `xeneonctl state show`. `xeneonctl state save <file>`
+With this repo: `ddc-control set 0x08 1`, then `ddc-control state show`. `ddc-control state save <file>`
 and `state restore <file>` save and restore every value above, falling back to `0x08` for the gains.
 With `ddcutil` on Linux, the same steps are `ddcutil setvcp 14 0x0b`, `ddcutil setvcp 08 1`, `ddcutil getvcp 16 18 1A`.
 
 ## Dump file format
 
-`xeneonctl dump <file>` and **Settings → Debug → Read All DDC Values / Save as JSON** write every
-advertised code as JSON (`"format": "xeneonkit-ddc-dump/1"`), which is useful for comparing
+`ddc-control dump <file>` and **Settings → Debug → Read All DDC Values / Save as JSON** write every
+advertised code as JSON (`"format": "ddckit-dump/1"`), which is useful for comparing
 units or firmware versions:
 
 ```json
@@ -154,7 +154,7 @@ units or firmware versions:
   "capabilities" : "(prot(monitor)type(LCD)model(RTK)…)",
   "capturedAt" : "2026-09-25T21:40:00Z",
   "display" : { "manufacturerID" : "CRX", "model" : 60672, "name" : "XENEON EDGE", "vendor" : 3672 },
-  "format" : "xeneonkit-ddc-dump/1",
+  "format" : "ddckit-dump/1",
   "unanswered" : [ "0xFD", "0xFF" ],
   "values" : [
     { "code" : "0x10", "current" : 95, "maximum" : 100, "name" : "Brightness", "restorable" : true },
@@ -163,7 +163,7 @@ units or firmware versions:
 }
 ```
 
-`xeneonctl load <file>` (or **Load JSON and Write Back**) writes only the `restorable` values back,
+`ddc-control load <file>` (or **Load JSON and Write Back**) writes only the `restorable` values back,
 in the verified order (preset, then gains with the `0x08` fallback, then luminance), and only onto
 the same vendor and model.
 

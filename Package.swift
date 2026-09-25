@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "XeneonControl",
+    name: "MenubarDDCControl",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "XeneonKit", targets: ["XeneonKit"]),
-        .executable(name: "XeneonControl", targets: ["XeneonControl"]),
-        .executable(name: "xeneonctl", targets: ["xeneonctl"]),
+        .library(name: "DDCKit", targets: ["DDCKit"]),
+        .executable(name: "MenubarDDCControl", targets: ["MenubarDDCControl"]),
+        .executable(name: "ddc-control", targets: ["ddc-control"]),
     ],
     targets: [
         .target(
-            name: "XeneonKit",
+            name: "DDCKit",
             linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreGraphics")]
         ),
-        .executableTarget(name: "XeneonControl", dependencies: ["XeneonKit"]),
-        .executableTarget(name: "xeneonctl", dependencies: ["XeneonKit"]),
-        .testTarget(name: "XeneonKitTests", dependencies: ["XeneonKit"]),
+        .executableTarget(name: "MenubarDDCControl", dependencies: ["DDCKit"]),
+        .executableTarget(name: "ddc-control", dependencies: ["DDCKit"]),
+        .testTarget(name: "DDCKitTests", dependencies: ["DDCKit"]),
     ]
 )

@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Observation
 import SwiftUI
-import XeneonKit
+import DDCKit
 
 /// One external display: its hardware controls (DDC/CI), software colour and ICC profile,
 /// and the state it was in when the app launched.

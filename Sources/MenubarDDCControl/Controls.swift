@@ -1,5 +1,5 @@
 import SwiftUI
-import XeneonKit
+import DDCKit
 
 /// A labelled slider with its value on the title row, clear of the track.
 struct ValueSlider<Accessory: View>: View {
@@ -304,7 +304,7 @@ struct RestoreButtons: View {
                     .frame(maxWidth: .infinity)
             }
             .disabled(model.isBusy || !model.differsFromLaunch)
-            .help("Put everything back as it was before Xeneon Control started")
+            .help("Put everything back as it was before Menubar DDC Control started")
 
             if model.link == .hardware {
                 if confirmsReset {

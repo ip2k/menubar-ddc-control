@@ -1,9 +1,10 @@
 import SwiftUI
-import XeneonKit
+import DDCKit
 
 /// The menu bar popover: the everyday controls for one display.
 struct MenuContent: View {
     @Bindable var app: AppModel
+    let updates: UpdateChecker
     @Environment(\.openSettings) private var openSettings
     @State private var contentHeight: CGFloat = 0
 
@@ -26,6 +27,10 @@ struct MenuContent: View {
                 }
                 .keyboardShortcut(",")
                 Spacer()
+                if let release = updates.available, let version = release.version {
+                    Button("Update to \(version.description)…") { updates.prompt(for: release, version: version) }
+                    Spacer()
+                }
                 Button("Quit") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
             }
@@ -47,7 +52,7 @@ struct MenuContent: View {
                 .labelsHidden()
                 .fixedSize()
             } else {
-                Text(app.selected?.name ?? "Xeneon Control").font(.headline)
+                Text(app.selected?.name ?? "Menubar DDC Control").font(.headline)
             }
             Spacer(minLength: 12)
             if let model = app.selected { LinkBadge(link: model.link) }

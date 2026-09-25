@@ -2,7 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import Observation
-import XeneonKit
+import DDCKit
 
 /// Every external display, the installed ICC profiles, saved snapshots, and the gamma
 /// baselines that software colour is applied on top of.
@@ -39,6 +39,7 @@ final class AppModel {
     }
 
     init() {
+        Self.migrateSettingsFromOldBundleID()
         snapshots = load([Snapshot].self, forKey: Keys.snapshots) ?? []
         originals = load([String: OriginalState].self, forKey: Keys.originals) ?? [:]
         rescan()
@@ -70,7 +71,7 @@ final class AppModel {
 
     func rescan() {
         var next: [DisplayModel] = []
-        for display in DisplayDirectory.externalDisplays() {
+        for display in DisplayDirectory.externalDisplays() where Self.debugShows(display) {
             let model: DisplayModel
             if let existing = displays.first(where: { $0.id == display.persistentKey }) {
                 existing.replace(display: display)
@@ -85,6 +86,13 @@ final class AppModel {
         }
         displays = next
         rebaseline()
+    }
+
+    /// `--debug-only <name>` limits the app to matching displays, for screenshots.
+    private static func debugShows(_ display: ExternalDisplay) -> Bool {
+        let arguments = CommandLine.arguments
+        guard let index = arguments.firstIndex(of: "--debug-only"), index + 1 < arguments.count else { return true }
+        return display.name.localizedCaseInsensitiveContains(arguments[index + 1])
     }
 
     private static func screenName(_ id: CGDirectDisplayID) -> String? {
@@ -190,6 +198,19 @@ final class AppModel {
     }
 
     // MARK: Persistence
+
+    /// The app was called "Xeneon Control" (com.ip2k.XeneonControl) before its first public
+    /// release. Copy that version's settings once, so snapshots and first-seen originals survive.
+    private static func migrateSettingsFromOldBundleID() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "migratedFromXeneonControl"),
+              let old = UserDefaults(suiteName: "com.ip2k.XeneonControl")?.dictionaryRepresentation() else { return }
+        for (key, value) in old where key == Keys.snapshots || key == Keys.originals || key.hasPrefix("software.")
+            || key == "showsGPUAdjustments" {
+            if defaults.object(forKey: key) == nil { defaults.set(value, forKey: key) }
+        }
+        defaults.set(true, forKey: "migratedFromXeneonControl")
+    }
 
     private func save<T: Encodable>(_ value: T, forKey key: String) {
         UserDefaults.standard.set(try? JSONEncoder().encode(value), forKey: key)
