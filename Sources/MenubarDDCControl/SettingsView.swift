@@ -22,6 +22,10 @@ struct SettingsView: View {
                 .tag(2)
         }
         .frame(minWidth: 760, minHeight: 560)
+        .background(Theme.base)
+        .toolbarBackground(Theme.base, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
+        .tint(Theme.accent)
     }
 }
 
@@ -43,6 +47,9 @@ struct DisplaysPane: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(Theme.surface)
+            .foregroundStyle(Theme.text)
             .frame(width: 200)
             Divider()
             if let model = app.selected {
@@ -64,11 +71,11 @@ struct DisplayDetail: View {
     var body: some View {
         Form {
             if let message = model.message {
-                Section { NoticeLabel(notice: message) }
+                ThemedSection { NoticeLabel(notice: message) }
             }
             switch model.link {
             case .probing:
-                Section {
+                ThemedSection {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("Reading the display's capabilities…")
@@ -77,15 +84,15 @@ struct DisplayDetail: View {
             case .hardware:
                 hardwareSections
             case .softwareOnly:
-                Section {
+                ThemedSection {
                     Text("This connection doesn't carry DDC/CI, so the monitor's own settings can't be reached. On M1-generation MacBook Pros the built-in HDMI port never passes DDC/CI; connect over USB-C or DisplayPort to use hardware controls.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.secondaryText)
                 } header: {
                     Text("Hardware controls unavailable")
                 }
             }
             profileSection
-            Section {
+            ThemedSection {
                 GPUAdjustments(model: model) { SoftwareSliders(model: model) }
             } header: {
                 Text("GPU adjustments")
@@ -97,6 +104,7 @@ struct DisplayDetail: View {
             infoSection
         }
         .formStyle(.grouped)
+        .themedForm()
         .task(id: model.id) { await model.refresh() }
         .fileImporter(isPresented: $importsProfile, allowedContentTypes: [UTType(filenameExtension: "icc") ?? .data, UTType(filenameExtension: "icm") ?? .data]) { result in
             if case .success(let url) = result {
@@ -108,7 +116,7 @@ struct DisplayDetail: View {
     }
 
     @ViewBuilder private var hardwareSections: some View {
-        Section("Picture (monitor, DDC/CI)") {
+        ThemedSection("Picture (monitor, DDC/CI)") {
             if model.supports(.brightness) {
                 VCPSlider(model: model, code: .brightness, title: "Brightness", systemImage: "sun.max")
             }
@@ -119,7 +127,7 @@ struct DisplayDetail: View {
                 VCPSlider(model: model, code: .sharpness, title: "Sharpness", systemImage: "rhombus")
             }
         }
-        Section {
+        ThemedSection {
             if model.supports(.colorPreset) {
                 PresetPicker(model: model)
                 if !model.hardwareWhitePoints.isEmpty { HardwareWhitePointPicker(model: model) }
@@ -131,7 +139,7 @@ struct DisplayDetail: View {
             FooterText("Settings stored in the monitor itself, before any colour profile. To calibrate, choose these first, then profile the display with your colorimeter.")
         }
         if model.supports(.osdLanguage), let languages = model.capabilities?.vcp[.osdLanguage], !languages.isEmpty {
-            Section("On-screen menu") {
+            ThemedSection("On-screen menu") {
                 Picker("Language", selection: Binding(
                     get: { UInt8(clamping: model.value(.osdLanguage)) },
                     set: { model.set(.osdLanguage, Int($0)) }
@@ -144,7 +152,7 @@ struct DisplayDetail: View {
 
     @ViewBuilder private var profileSection: some View {
         let groups = app.profileGroups(for: model)
-        Section {
+        ThemedSection {
             Picker("Profile", selection: Binding(
                 get: { model.profile?.url },
                 set: { url in
@@ -179,7 +187,7 @@ struct DisplayDetail: View {
     }
 
     @ViewBuilder private var resetSection: some View {
-        Section {
+        ThemedSection {
             RestoreButtons(model: model)
             if let original = app.originals[model.id] {
                 Button("Restore Values from When First Seen") { app.restoreOriginal(of: model) }
@@ -200,7 +208,7 @@ struct DisplayDetail: View {
     }
 
     @ViewBuilder private var infoSection: some View {
-        Section("Information") {
+        ThemedSection("Information") {
             LabeledContent("Manufacturer", value: "\(model.display.identity.manufacturerID) (\(model.display.identity.vendor))")
             LabeledContent("Model / serial", value: "\(model.display.identity.model) / \(model.display.identity.serial)")
             if let caps = model.capabilities {
@@ -234,7 +242,7 @@ struct SnapshotsPane: View {
     var body: some View {
         Form {
             if let model = app.selected {
-                Section {
+                ThemedSection {
                     HStack {
                         TextField("Name", text: $newName, prompt: Text("Evening, Photo editing…"))
                         Button("Save Current Settings") {
@@ -249,15 +257,15 @@ struct SnapshotsPane: View {
                     FooterText("A snapshot records the monitor's preset, white point, gains, brightness, contrast and sharpness, plus the software adjustment and colour profile.")
                 }
             }
-            Section("Saved") {
+            ThemedSection("Saved") {
                 if app.snapshots.isEmpty {
-                    Text("No snapshots yet.").foregroundStyle(.secondary)
+                    Text("No snapshots yet.").foregroundStyle(Theme.secondaryText)
                 }
                 ForEach(app.snapshots) { snapshot in
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(snapshot.name)
-                            Text(snapshot.displayName).font(.caption).foregroundStyle(.secondary)
+                            Text(snapshot.displayName).font(.caption).foregroundStyle(Theme.secondaryText)
                         }
                         Spacer()
                         Button("Apply") { app.apply(snapshot) }
@@ -273,6 +281,7 @@ struct SnapshotsPane: View {
             }
         }
         .formStyle(.grouped)
+        .themedForm()
     }
 }
 
@@ -286,7 +295,7 @@ struct GeneralPane: View {
 
     var body: some View {
         Form {
-            Section {
+            ThemedSection {
                 Toggle("Open at login", isOn: $launchesAtLogin)
                     .onChange(of: launchesAtLogin) { _, enabled in
                         do {
@@ -298,12 +307,12 @@ struct GeneralPane: View {
                         }
                     }
                 if let loginError {
-                    Text(loginError).font(.caption).foregroundStyle(.orange)
+                    Text(loginError).font(.caption).foregroundStyle(Theme.gold)
                 }
             } footer: {
                 FooterText("Software adjustments only apply while the app runs, so opening it at login keeps them in place.")
             }
-            Section {
+            ThemedSection {
                 Button("Rescan Displays") { app.rescan() }
                 Button("Reload Colour Profiles") { app.reloadProfiles() }
             }
@@ -311,6 +320,7 @@ struct GeneralPane: View {
             AboutSection()
         }
         .formStyle(.grouped)
+        .themedForm()
     }
 }
 
@@ -333,7 +343,7 @@ struct DebugSection: View {
     @State private var loadError: String?
 
     var body: some View {
-        Section {
+        ThemedSection {
             HStack(spacing: 8) {
                 Button("Read All DDC Values") { model.readAllValues() }
                 Button("Save as JSON…") { save() }
@@ -343,7 +353,7 @@ struct DebugSection: View {
             }
             .disabled(model.isBusy)
             if let loadError {
-                Text(loadError).font(.caption).foregroundStyle(.orange)
+                Text(loadError).font(.caption).foregroundStyle(Theme.gold)
             }
             if let dump = model.lastDump {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
@@ -351,15 +361,15 @@ struct DebugSection: View {
                         Text("Code"); Text("Name"); Text("Value"); Text("Max"); Text("Written back")
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
                     ForEach(dump.values, id: \.code) { value in
                         GridRow {
                             Text(value.code).monospaced()
                             Text(value.name)
                             Text(String(value.current)).monospacedDigit().gridColumnAlignment(.trailing)
-                            Text(String(value.maximum)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+                            Text(String(value.maximum)).monospacedDigit().foregroundStyle(Theme.secondaryText).gridColumnAlignment(.trailing)
                             Image(systemName: value.restorable ? "checkmark" : "minus")
-                                .foregroundStyle(value.restorable ? .primary : .tertiary)
+                                .foregroundStyle(value.restorable ? Theme.text : Theme.muted)
                                 .accessibilityLabel(value.restorable ? "Written back" : "Read only")
                         }
                         .font(.callout)
@@ -369,7 +379,7 @@ struct DebugSection: View {
                 if !dump.unanswered.isEmpty {
                     Text("No reply: \(dump.unanswered.joined(separator: ", "))")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.secondaryText)
                 }
             }
         } header: {
@@ -417,7 +427,7 @@ struct UpdatesSection: View {
     @Bindable var updates: UpdateChecker
 
     var body: some View {
-        Section {
+        ThemedSection {
             Toggle("Check for updates automatically (weekly)", isOn: $updates.checksAutomatically)
             HStack(spacing: 12) {
                 Button("Check Now") { Task { await updates.check(userInitiated: true) } }
@@ -439,9 +449,9 @@ struct UpdatesSection: View {
         switch updates.status {
         case .idle: EmptyView()
         case .checking: ProgressView().controlSize(.small)
-        case .upToDate: Text("You're up to date.").foregroundStyle(.secondary)
+        case .upToDate: Text("You're up to date.").foregroundStyle(Theme.secondaryText)
         case .available(let version): Text("Version \(version) is available.")
-        case .failed(let reason): Text("Couldn't check: \(reason)").foregroundStyle(.orange)
+        case .failed(let reason): Text("Couldn't check: \(reason)").foregroundStyle(Theme.gold)
         }
     }
 }
@@ -451,18 +461,18 @@ struct AboutSection: View {
     private let info = Bundle.main.infoDictionary ?? [:]
 
     var body: some View {
-        Section("About") {
+        ThemedSection("About") {
             LabeledContent("Version", value: "\(string("CFBundleShortVersionString")) (build \(string("CFBundleVersion")))")
             LabeledContent("Commit") {
                 let commit = string("DDCGitCommit")
                 HStack(spacing: 6) {
                     if commit.count == 40, let url = URL(string: "https://github.com/\(UpdateChecker.repository)/commit/\(commit)") {
-                        Link(String(commit.prefix(12)), destination: url).monospaced()
+                        Link(String(commit.prefix(12)), destination: url).monospaced().tint(Theme.link)
                     } else {
                         Text(commit).monospaced()
                     }
                     if info["DDCGitDirty"] as? Bool == true {
-                        Text("+ local changes").foregroundStyle(.orange)
+                        Text("+ local changes").foregroundStyle(Theme.secondaryText)
                     }
                 }
                 .textSelection(.enabled)
@@ -470,11 +480,12 @@ struct AboutSection: View {
             LabeledContent("Built", value: "\(string("DDCBuildDate")), \(string("DDCBuildOrigin"))")
             LabeledContent("Source") {
                 Link("github.com/\(UpdateChecker.repository)", destination: URL(string: "https://github.com/\(UpdateChecker.repository)")!)
+                    .tint(Theme.link)
             }
             LabeledContent("Licence", value: "MIT")
             Text("Not affiliated with or endorsed by CORSAIR. XENEON is a trademark of CORSAIR MEMORY, Inc.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.secondaryText)
         }
     }
 
