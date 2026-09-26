@@ -34,9 +34,17 @@ links without DDC/CI, and saved snapshots.
   `.github/workflows/release.yml` builds, publishes the release (notes = that CHANGELOG section) and
   bumps `Casks/menubar-ddc-control.rb` on `main`. The repo is its own Homebrew tap. Not notarized
   (ad-hoc signed, by choice).
-- README screenshots: `--debug-open-menu`/`--debug-show-ui` with `--debug-only XENEON` (hides the
+- Theme: Rosé Pine Moon/Dawn in `Sources/MenubarDDCControl/Theme.swift` (values from rose-pine/palette).
+  Use `Theme.*` colours, never system ones: `secondaryText` (subtle nudged toward text for 4.5:1),
+  `gold` only for warning *icons* (2.2:1 on Dawn), `link` for links, `muted` for decoration only.
+  Form sections are `ThemedSection`, forms get `.themedForm()`.
+- Icons: `Resources/AppIcon.icns` is built from the owner's artwork (masked to Apple's 824/1024 grid);
+  `MenuBarIcon.swift` draws the menu bar template glyph in code.
+- README screenshots: `--debug-appearance dark|light` picks Moon or Dawn; `--debug-open-menu`/`--debug-show-ui` with `--debug-only XENEON` (hides the
   owner's other displays), `--debug-gpu-on`, `--debug-tab <n>`, `--debug-height <pt>`, then crop into
   `docs/images/` (`sips --cropOffset 0 0` centres instead of cropping from the top; use 1 1).
+  Snapshots always render at 2x; crop offsets for a 900x2600 pt settings capture: monitor 1+1340,
+  ICC/GPU 1530+1380, Restore/Debug 2915+1940.
   Afterwards `defaults delete com.ip2k.MenubarDDCControl`: debug runs write to the real settings.
 - `swift run ddc-control list|caps|get|set|profiles|profile`: talks to the real display.
 - `"build/Menubar DDC Control.app/Contents/MacOS/MenubarDDCControl" --debug-open-menu --debug-snapshot <dir>`

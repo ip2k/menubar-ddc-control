@@ -18,6 +18,7 @@ cp Resources/Info.plist "$app/Contents/Info.plist"
 cp "$bin/MenubarDDCControl" "$app/Contents/MacOS/MenubarDDCControl"
 cp "$bin/ddc-control" "$app/Contents/Resources/ddc-control"
 cp LICENSE "$app/Contents/Resources/LICENSE"
+cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 
 plist="$app/Contents/Info.plist"
 set_key() { /usr/libexec/PlistBuddy -c "Delete :$1" "$plist" >/dev/null 2>&1 || true

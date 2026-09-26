@@ -6,8 +6,10 @@ struct MenubarDDCControlApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
 
     var body: some Scene {
-        MenuBarExtra("Menubar DDC Control", systemImage: "sun.max") {
+        MenuBarExtra {
             MenuContent(app: delegate.app, updates: delegate.updates)
+        } label: {
+            Image(nsImage: MenuBarIcon.image)
         }
         .menuBarExtraStyle(.window)
 
@@ -26,14 +28,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         updates.start()
         let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "--debug-appearance"), index + 1 < arguments.count {
+            NSApp.appearance = NSAppearance(named: arguments[index + 1] == "light" ? .aqua : .darkAqua)
+        }
         if let index = arguments.firstIndex(of: "--debug-tab"), index + 1 < arguments.count, let tab = Int(arguments[index + 1]) {
             UserDefaults.standard.set(tab, forKey: "settingsTab")
         }
         // Developer aids for inspecting the UI without Accessibility or Screen Recording access:
         //   --debug-show-ui          popover content in a panel, plus Settings
         //   --debug-open-menu        clicks the app's own menu bar item to open the real popover
+        //   --debug-appearance light|dark   force Rosé Pine Dawn or Moon
         //   --debug-only <name>      only show displays whose name contains <name>
-        //   --debug-gpu-on           tick "Adjust colors using GPU" (values stay at their defaults)
+        //   --debug-gpu-on           tick "Adjust colours using GPU" (values stay at their defaults)
         //   --debug-tab <n>          open Settings on tab n (0 Displays, 1 Snapshots, 2 General)
         //   --debug-height <pt>      height to enlarge Settings to before snapshotting (default 1900)
         //   --debug-snapshot <dir>   (with --debug-show-ui, first runs Read All DDC Values) writes each window to <dir>/<n>.png, then again as
@@ -110,7 +116,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 window.setContentSize(NSSize(width: 900, height: height))
                 window.displayIfNeeded()
             }
-            guard let view = window.contentView?.superview, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+            guard let view = window.contentView?.superview else { continue }
+            // Always 2x, whichever screen the window is on, so screenshots are consistent.
+            guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width) * 2,
+                                             pixelsHigh: Int(view.bounds.height) * 2, bitsPerSample: 8, samplesPerPixel: 4,
+                                             hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+            else { continue }
+            rep.size = view.bounds.size
             view.cacheDisplay(in: view.bounds, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: directory.appending(path: "\(n)\(suffix).png"))
             log("snapshot \(n)\(suffix): \(type(of: window)) \(Int(window.frame.width))x\(Int(window.frame.height)) at y \(Int(window.frame.minY))")

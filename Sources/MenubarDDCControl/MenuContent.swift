@@ -17,7 +17,7 @@ struct MenuContent: View {
                 snapshotMenu(for: model)
             } else {
                 Text("No external display connected.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
             }
             Divider()
             HStack {
@@ -37,6 +37,9 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 340)
+        .foregroundStyle(Theme.text)
+        .tint(Theme.accent)
+        .background(Theme.base)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
         .background(FitWindowToContent(height: contentHeight))
@@ -81,7 +84,7 @@ struct DisplayQuickControls: View {
             case .probing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Reading the display's current settings…").foregroundStyle(.secondary)
+                    Text("Reading the display's current settings…").foregroundStyle(Theme.secondaryText)
                 }
             case .hardware:
                 ControlSourceHeader(source: .monitor)
@@ -105,7 +108,7 @@ struct DisplayQuickControls: View {
             case .softwareOnly:
                 Text("This connection doesn't carry DDC/CI, so the monitor's own settings can't be reached. Only GPU adjustments are available.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 ControlSourceHeader(source: .gpu)
                 GPUAdjustments(model: model) { SoftwareSliders(model: model) }

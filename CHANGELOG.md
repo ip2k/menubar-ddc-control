@@ -5,6 +5,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
+### Added
+
+- An app icon, and a matching menu bar icon (two arrows around two gears) that follows the menu
+  bar's light, dark and highlighted appearance.
+- Rosé Pine throughout: Moon in dark mode, Dawn in light mode, following macOS as it switches.
+
+### Changed
+
+- "Colour" is spelled the same way everywhere, including the "Adjust colours using GPU" checkbox.
+
+### Fixed
+
+- Sliders without a colour of their own no longer fall back to the system blue accent.
+
 ### Documentation
 
 - The Homebrew instructions now include `brew trust ip2k/menubar-ddc-control`: current Homebrew
@@ -39,7 +55,7 @@ First public release.
 - **Monitor and GPU controls are now separate, clearly labelled sections.** By default only the
   monitor's own settings (DDC/CI) are adjustable. GPU adjustments (fine white point, gamma, colour
   balance, extra dimming) sit under a disclosure arrow and stay greyed out at their defaults until
-  you tick "Adjust colors using GPU", which also opens them. Unticking it stops applying them and
+  you tick "Adjust colours using GPU", which also opens them. Unticking it stops applying them and
   keeps their positions for next time.
 - Hardware white point: a menu of the monitor's built-in white points (on the Xeneon Edge, only
   four: 5000, 6500, 7500 and 9300 K), with a note explaining the limit.

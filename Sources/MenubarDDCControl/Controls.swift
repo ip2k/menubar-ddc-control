@@ -26,12 +26,13 @@ struct ValueSlider<Accessory: View>: View {
                 Spacer(minLength: 12)
                 Text(format(value))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
                     .padding(.leading, 4)
             }
             .font(.callout)
+            // `.tint(nil)` would reset the inherited Rosé Pine accent to the system blue.
             Slider(value: Binding(get: { value }, set: { value = ($0 / step).rounded() * step }), in: range)
-                .tint(tint)
+                .tint(tint ?? Theme.accent)
                 .labelsHidden()
                 .accessibilityLabel(title)
                 .accessibilityValue(format(value))
@@ -92,13 +93,13 @@ struct MarkerRow: View {
                 // Keep each label inside the row even where its tick sits near an edge.
                 let labelX = min(max(x, 14), geo.size.width - 14)
                 Rectangle()
-                    .fill(.secondary)
+                    .fill(Theme.muted)
                     .frame(width: 1, height: 4)
                     .position(x: x, y: 2)
                 Button(marker.name) { select(marker.kelvin) }
                     .buttonStyle(.plain)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
                     .position(x: labelX, y: 13)
                     .help("\(marker.name): \(Int(marker.kelvin)) K")
             }
@@ -133,7 +134,7 @@ struct PresetPicker: View {
             if model.display.quirks.leavingUserPresetResetsGains, model.isUserPresetActive {
                 Text("On this monitor some presets (sRGB, Native) can reset \(VCPNames.colorPreset(current))'s factory calibration. Switching back to \(VCPNames.colorPreset(current)) restores it automatically.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -153,14 +154,14 @@ struct GainSliders: View {
                         .monospacedDigit()
                         .padding(.leading, 12)
                 }
-                Text("This monitor keeps its factory-calibrated gains and ignores changes to them over DDC/CI. For finer control, tick Adjust colors using GPU.")
+                Text("This monitor keeps its factory-calibrated gains and ignores changes to them over DDC/CI. For finer control, tick Adjust colours using GPU.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                VCPSlider(model: model, code: .redGain, title: "Red gain", tint: .red)
-                VCPSlider(model: model, code: .greenGain, title: "Green gain", tint: .green)
-                VCPSlider(model: model, code: .blueGain, title: "Blue gain", tint: .blue)
+                VCPSlider(model: model, code: .redGain, title: "Red gain", tint: Theme.love)
+                VCPSlider(model: model, code: .greenGain, title: "Green gain", tint: Theme.foam)
+                VCPSlider(model: model, code: .blueGain, title: "Blue gain", tint: Theme.pine)
             }
         }
     }
@@ -173,11 +174,11 @@ struct SoftwareBalanceSliders: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ValueSlider(title: "Red", value: $model.software.red, range: SoftwareAdjustment.gainRange, step: 0.01,
-                        tint: .red, format: Self.percent)
+                        tint: Theme.love, format: Self.percent)
             ValueSlider(title: "Green", value: $model.software.green, range: SoftwareAdjustment.gainRange, step: 0.01,
-                        tint: .green, format: Self.percent)
+                        tint: Theme.foam, format: Self.percent)
             ValueSlider(title: "Blue", value: $model.software.blue, range: SoftwareAdjustment.gainRange, step: 0.01,
-                        tint: .blue, format: Self.percent)
+                        tint: Theme.pine, format: Self.percent)
         }
     }
 
@@ -224,7 +225,7 @@ struct HardwareWhitePointPicker: View {
             .disabled(!model.canWrite)
             Text(Self.caption(for: model, steps: steps.map(\.kelvin)))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -239,7 +240,7 @@ struct HardwareWhitePointPicker: View {
         let list = ListFormatter.localizedString(byJoining: steps.map { "\($0) K" })
         let who = model.display.isXeneonEdge ? "The Xeneon Edge" : "This monitor"
         let count = NumberFormatter.localizedString(from: steps.count as NSNumber, number: .spellOut)
-        return "\(who) has only \(count) built-in white-point calibrations (\(list)). For anything in between, tick Adjust colors using GPU."
+        return "\(who) has only \(count) built-in white-point calibrations (\(list)). For anything in between, tick Adjust colours using GPU."
     }
 }
 
@@ -279,7 +280,7 @@ struct GPUAdjustments<Content: View>: View {
             .padding(.top, 8)
             .disabled(!model.gpuEnabled)
         } label: {
-            Toggle("Adjust colors using GPU", isOn: $model.gpuEnabled)
+            Toggle("Adjust colours using GPU", isOn: $model.gpuEnabled)
                 .toggleStyle(.checkbox)
                 .help("Unticked: the picture is changed only through the monitor's own settings")
         }
@@ -334,7 +335,7 @@ struct RestoreButtons: View {
                     ProgressView().controlSize(.small)
                     Text("Working… every value is read back when it finishes.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.secondaryText)
                 }
             }
         }
@@ -352,12 +353,15 @@ struct LinkBadge: View {
             Label("DDC/CI", systemImage: "cable.connector")
                 .labelStyle(.titleAndIcon)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.secondaryText)
                 .help("Settings are sent to the monitor itself")
         case .softwareOnly:
-            Label("Software", systemImage: "cpu")
+            Label {
+                Text("Software").foregroundStyle(Theme.text)
+            } icon: {
+                Image(systemName: "cpu").foregroundStyle(Theme.gold)
+            }
                 .font(.caption)
-                .foregroundStyle(.orange)
                 .help("This connection does not carry DDC/CI; adjustments are made by the GPU")
         }
     }
@@ -386,8 +390,12 @@ struct NoticeLabel: View {
     let notice: Notice
 
     var body: some View {
-        Label(notice.text, systemImage: notice.isProblem ? "exclamationmark.triangle" : "info.circle")
-            .foregroundStyle(notice.isProblem ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-            .fixedSize(horizontal: false, vertical: true)
+        Label {
+            Text(notice.text).foregroundStyle(notice.isProblem ? Theme.text : Theme.secondaryText)
+        } icon: {
+            Image(systemName: notice.isProblem ? "exclamationmark.triangle.fill" : "info.circle")
+                .foregroundStyle(notice.isProblem ? Theme.gold : Theme.secondaryText)
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/icon.png" width="128" alt="Menubar DDC Control icon: two circular arrows around two meshing gears">
+</p>
+
 # Menubar DDC Control
 
 Control your monitor's own settings from the macOS menu bar: brightness, contrast, sharpness,
@@ -6,7 +10,7 @@ DDC/CI monitors, and it was built for the **CORSAIR XENEON EDGE**. The Edge has 
 menu, and its official app (iCUE) is Windows-only, so on a Mac this is the way to reach its settings.
 
 <p align="center">
-  <img src="docs/images/popover.png" width="340" alt="The menu bar popover: monitor brightness, contrast, colour preset and white point, with GPU adjustments collapsed">
+  <img src="docs/images/popover.png" width="700" alt="The menu bar popover in Rosé Pine Moon (dark mode) and Rosé Pine Dawn (light mode): monitor brightness, contrast, colour preset and white point, with GPU adjustments collapsed">
 </p>
 
 > Not affiliated with or endorsed by CORSAIR. XENEON is a trademark of CORSAIR MEMORY, Inc.
@@ -24,13 +28,13 @@ settings, over DDC/CI, exactly as its buttons or vendor software would.
   supports. A monitor that silently ignores a setting gets that control greyed out with an
   explanation, instead of a slider that does nothing.
 
-**Optional GPU adjustments, off until you ask.** Tick **Adjust colors using GPU** for what the
+**Optional GPU adjustments, off until you ask.** Tick **Adjust colours using GPU** for what the
 hardware can't do: a fine white point from 3000 to 9300 K in 10 K steps with D50/D65/D75/D93
 marks, gamma, red/green/blue balance, and dimming below the backlight's minimum. They're applied
 on top of your colour profile's calibration, and unticking the box switches them off at once.
 
 <p align="center">
-  <img src="docs/images/popover-gpu.png" width="340" alt="The popover with Adjust colors using GPU ticked, showing the fine white point with D50, D65, D75 and D93 marks, gamma and RGB balance">
+  <img src="docs/images/popover-gpu.png" width="340" alt="The popover with Adjust colours using GPU ticked, showing the fine white point with D50, D65, D75 and D93 marks, gamma and RGB balance">
 </p>
 
 **A way back, always.**
@@ -54,6 +58,10 @@ as System Settings → Displays.
 <p align="center">
   <img src="docs/images/settings-icc-gpu.png" width="720" alt="Settings: ICC colour profile picker, and the GPU adjustments section">
 </p>
+
+**Rosé Pine, light and dark.** The whole app uses [Rosé Pine](https://rosepinetheme.com): Moon
+when macOS is in dark mode, Dawn in light mode, switching with the system. Secondary text is
+tuned slightly so every caption meets the 4.5:1 contrast guideline in both variants.
 
 **Snapshots.** Save a display's whole setup under a name, such as "Evening" or "Photo editing",
 and apply it from the menu bar.
@@ -160,4 +168,4 @@ section plus the image's SHA-256. The workflow then updates the Homebrew cask on
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The colour palette is [Rosé Pine](https://github.com/rose-pine/palette) (MIT).
