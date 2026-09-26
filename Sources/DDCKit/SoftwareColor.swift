@@ -18,6 +18,10 @@ public struct SoftwareAdjustment: Codable, Equatable, Sendable {
     /// already produces); equal values leave the white point alone.
     public var whitePoint: Double = 6500
     public var referenceWhitePoint: Double = 6500
+    /// Green–magenta tint in Adobe units (negative green, positive magenta). It is not applied
+    /// separately: moving it rescales `red`, `green` and `blue` (see `settingTint`), so this
+    /// records the slider's position.
+    public var tint: Double = 0
 
     public init() {}
 
@@ -32,6 +36,7 @@ public struct SoftwareAdjustment: Codable, Equatable, Sendable {
         gamma = try c.decodeIfPresent(Double.self, forKey: .gamma) ?? 1
         whitePoint = try c.decodeIfPresent(Double.self, forKey: .whitePoint) ?? 6500
         referenceWhitePoint = try c.decodeIfPresent(Double.self, forKey: .referenceWhitePoint) ?? 6500
+        tint = try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0
     }
 
     /// Per-channel gain combining the RGB balance with the white-point shift.
@@ -47,7 +52,23 @@ public struct SoftwareAdjustment: Codable, Equatable, Sendable {
     }
 
     public var valuesAreDefault: Bool {
-        brightness == 1 && red == 1 && green == 1 && blue == 1 && gamma == 1 && abs(whitePoint - referenceWhitePoint) < 1
+        brightness == 1 && red == 1 && green == 1 && blue == 1 && gamma == 1 && tint == 0
+            && abs(whitePoint - referenceWhitePoint) < 1
+    }
+
+    /// This adjustment with the tint slider at `newTint`: red, green and blue are multiplied by
+    /// the change in tint gains, which keeps any balance set by hand, then scaled back so no
+    /// channel exceeds 1.
+    public func settingTint(_ newTint: Double) -> SoftwareAdjustment {
+        var next = self
+        next.tint = min(max(newTint, WhitePoint.tintRange.lowerBound), WhitePoint.tintRange.upperBound)
+        let old = WhitePoint.tintGains(tint: tint, kelvin: whitePoint)
+        let new = WhitePoint.tintGains(tint: next.tint, kelvin: whitePoint)
+        var rgb = (red * new.red / old.red, green * new.green / old.green, blue * new.blue / old.blue)
+        let peak = max(rgb.0, rgb.1, rgb.2)
+        if peak > 1 { rgb = (rgb.0 / peak, rgb.1 / peak, rgb.2 / peak) }
+        (next.red, next.green, next.blue) = rgb
+        return next
     }
 
     public static let brightnessRange = 0.1...1.0

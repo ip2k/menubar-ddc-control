@@ -40,19 +40,17 @@ links without DDC/CI, and saved snapshots.
   Form sections are `ThemedSection`, forms get `.themedForm()`.
 - Icons: `Resources/AppIcon.icns` is built from the owner's artwork (masked to Apple's 824/1024 grid);
   `MenuBarIcon.swift` draws the menu bar template glyph in code.
-- README screenshots: `--debug-appearance dark|light` picks Moon or Dawn; `--debug-open-menu`/`--debug-show-ui` with `--debug-only XENEON` (hides the
-  owner's other displays), `--debug-gpu-on`, `--debug-tab <n>`, `--debug-height <pt>`, then crop into
-  `docs/images/` (`sips --cropOffset 0 0` centres instead of cropping from the top; use 1 1).
-  Snapshots always render at 2x; crop offsets for a 900x2600 pt settings capture: monitor 1+1340,
-  ICC/GPU 1530+1380, Restore/Debug 2915+1940.
-  Afterwards `defaults delete com.ip2k.MenubarDDCControl`: debug runs write to the real settings.
-- `swift run ddc-control list|caps|get|set|profiles|profile`: talks to the real display.
-- `"build/Menubar DDC Control.app/Contents/MacOS/MenubarDDCControl" --debug-open-menu --debug-snapshot <dir>`
-  opens the **real** menu bar popover (by sending its own status button a mouse-down) and writes
-  every window to `<dir>/<n>.png`, then `<n>-expanded.png` with the GPU adjustments disclosure expanded.
-  `--debug-show-ui` instead shows the popover content in a panel and opens Settings (enlarged
-  to 900×1900 for the snapshot). This is how to look at the UI, because the terminal has neither
-  Accessibility nor Screen Recording permission. Quit the installed app first (see the bus note below).
+- README screenshots: build with `./scripts/build-app.sh --debug` (bundle ID `…MenubarDDCControl.debug`,
+  at `build/debug/`) and only ever launch, kill (`pkill -f "build/debug/"`) and `defaults delete
+  com.ip2k.MenubarDDCControl.debug` that copy. **Never `pkill -x MenubarDDCControl` or delete
+  `com.ip2k.MenubarDDCControl`**: that is the owner's installed app and its settings (this wiped them
+  once, 2026-09-25; the old-domain migration brought snapshots and originals back). Flags:
+  `--debug-appearance dark|light`, `--debug-open-menu`/`--debug-show-ui`, `--debug-only XENEON` (hides
+  the owner's other displays), `--debug-gpu-on`, `--debug-tint <n>` (changes the picture while it runs),
+  `--debug-tab <n>`, `--debug-height <pt>`, `--debug-snapshot <dir>`. Crop into `docs/images/`
+  (`sips --cropOffset 0 0` centres instead of cropping from the top; use 1 1). Snapshots always
+  render at 2x; crop offsets for a 900x2600 pt settings capture: monitor 1+1340, ICC/GPU 1530+1380,
+  Restore/Debug 2915+1940 (shift if sections grow).
 - Known-good Edge state: `~/Library/Application Support/Menubar DDC Control/xeneon-edge-known-good-2026-09-25.json`;
   `ddc-control state restore <that file>` puts it back (it falls back to 0x08 for the gains).
 
