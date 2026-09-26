@@ -108,6 +108,50 @@ struct MarkerRow: View {
     }
 }
 
+/// Green ↔ magenta, in Adobe Tint units (−3000 × Duv): moves white across the Planckian locus,
+/// at right angles to the white point. Setting it rescales the RGB balance sliders.
+struct TintSlider: View {
+    @Bindable var model: DisplayModel
+
+    var body: some View {
+        ValueSlider(title: "Tint", systemImage: "circle.lefthalf.striped.horizontal",
+                    value: Binding(get: { model.software.tint }, set: { model.software = model.software.settingTint($0) }),
+                    range: WhitePoint.tintRange, step: 1, format: Self.describe) {
+            TintScale { model.software = model.software.settingTint(0) }
+        }
+        .help("Green–magenta tint, as in Lightroom: \(Int(WhitePoint.ansiTintTolerance)) is the ANSI tolerance for lamps (±0.006 Duv)")
+    }
+
+    static func describe(_ tint: Double) -> String {
+        let t = Int(tint.rounded())
+        return t == 0 ? "Neutral" : t < 0 ? "Green \(-t)" : "Magenta \(t)"
+    }
+}
+
+/// "Green", a tappable "Neutral" mark at the centre, and "Magenta", under the tint slider's track.
+private struct TintScale: View {
+    let reset: () -> Void
+
+    var body: some View {
+        // One baseline for all three labels; the centre tick sits above "Neutral" in an overlay.
+        HStack(alignment: .firstTextBaseline) {
+            Text("Green")
+            Spacer()
+            Button("Neutral", action: reset)
+                .buttonStyle(.plain)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(Theme.muted).frame(width: 1, height: 4).offset(y: -6)
+                }
+            Spacer()
+            Text("Magenta")
+        }
+        .padding(.top, 6)
+        .font(.caption2)
+        .foregroundStyle(Theme.secondaryText)
+        .padding(.horizontal, 2)
+    }
+}
+
 struct GammaSlider: View {
     @Bindable var model: DisplayModel
 
@@ -193,6 +237,7 @@ struct SoftwareSliders: View {
             ValueSlider(title: "Brightness", systemImage: "sun.min", value: $model.software.brightness,
                         range: SoftwareAdjustment.brightnessRange, step: 0.01, format: SoftwareBalanceSliders.percent)
             WhitePointSlider(model: model)
+            TintSlider(model: model)
             GammaSlider(model: model)
             SoftwareBalanceSliders(model: model)
             Button("Reset GPU Adjustments") { model.resetGPUValues() }

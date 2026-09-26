@@ -30,11 +30,13 @@ settings, over DDC/CI, exactly as its buttons or vendor software would.
 
 **Optional GPU adjustments, off until you ask.** Tick **Adjust colours using GPU** for what the
 hardware can't do: a fine white point from 3000 to 9300 K in 10 K steps with D50/D65/D75/D93
-marks, gamma, red/green/blue balance, and dimming below the backlight's minimum. They're applied
+marks; a green ↔ magenta **Tint** that moves white across the blackbody curve (Lightroom's units,
+−3000 × Duv) and drives the red/green/blue sliders; gamma; red/green/blue balance; and dimming below
+the backlight's minimum. They're applied
 on top of your colour profile's calibration, and unticking the box switches them off at once.
 
 <p align="center">
-  <img src="docs/images/popover-gpu.png" width="340" alt="The popover with Adjust colours using GPU ticked, showing the fine white point with D50, D65, D75 and D93 marks, gamma and RGB balance">
+  <img src="docs/images/popover-gpu.png" width="340" alt="The popover with Adjust colours using GPU ticked, showing the fine white point with D50, D65, D75 and D93 marks, the green–magenta tint, gamma and RGB balance">
 </p>
 
 **A way back, always.**

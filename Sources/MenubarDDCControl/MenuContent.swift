@@ -102,6 +102,7 @@ struct DisplayQuickControls: View {
                 ControlSourceHeader(source: .gpu)
                 GPUAdjustments(model: model) {
                     WhitePointSlider(model: model)
+                    TintSlider(model: model)
                     GammaSlider(model: model)
                     SoftwareBalanceSliders(model: model)
                 }

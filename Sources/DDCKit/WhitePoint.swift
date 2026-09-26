@@ -30,13 +30,66 @@ public enum WhitePoint {
 
     /// Linear-light sRGB of the white at `kelvin`, luminance 1.
     static func linearRGB(kelvin: Double) -> (Double, Double, Double) {
-        let (x, y) = chromaticity(kelvin: kelvin)
+        linearRGB(chromaticity(kelvin: kelvin))
+    }
+
+    /// Linear-light sRGB of chromaticity `xy` at luminance 1.
+    static func linearRGB(_ xy: (x: Double, y: Double)) -> (Double, Double, Double) {
+        let (x, y) = xy
         let X = x / y, Y = 1.0, Z = (1 - x - y) / y
         return (
             3.2406 * X - 1.5372 * Y - 0.4986 * Z,
             -0.9689 * X + 1.8758 * Y + 0.0415 * Z,
             0.0557 * X - 0.2040 * Y + 1.0570 * Z
         )
+    }
+
+    // MARK: Green–magenta (tint)
+
+    /// Adobe's Tint scale (Lightroom, Camera Raw, DNG SDK): Tint = −3000 × Duv, so positive
+    /// Tint is magenta (below the Planckian locus) and negative is green (above it).
+    public static let tintScale = -3000.0
+    public static let tintRange = -50.0...50.0
+    /// ANSI C78.377's ±0.006 Duv tolerance for lamps, in Tint units (±18).
+    public static let ansiTintTolerance = 0.006 * 3000
+
+    /// The Planckian locus in CIE 1960 uv (Krystek 1985, 1000–15000 K).
+    static func planckianUV(kelvin t: Double) -> (u: Double, v: Double) {
+        let u = (0.860117757 + 1.54118254e-4 * t + 1.28641212e-7 * t * t) / (1 + 8.42420235e-4 * t + 7.08145163e-7 * t * t)
+        let v = (0.317398726 + 4.22806245e-5 * t + 4.20481691e-8 * t * t) / (1 - 2.89741816e-5 * t + 1.61456053e-7 * t * t)
+        return (u, v)
+    }
+
+    /// Unit normal to the Planckian locus at `kelvin`, pointing above it (towards green, +Duv).
+    static func locusNormal(kelvin t: Double) -> (u: Double, v: Double) {
+        let a = planckianUV(kelvin: t - 1), b = planckianUV(kelvin: t + 1)
+        let (du, dv) = (b.u - a.u, b.v - a.v)            // tangent, towards higher CCT
+        let length = (du * du + dv * dv).squareRoot()
+        let n = (u: -dv / length, v: du / length)      // tangent rotated 90°
+        return n.v > 0 ? n : (-n.u, -n.v)               // "above" the locus has larger v
+    }
+
+    /// The chromaticity of `kelvin` (daylight locus from 4000 K, as `chromaticity`) moved
+    /// `duv` across the locus in CIE 1960 uv.
+    public static func chromaticity(kelvin: Double, duv: Double) -> (x: Double, y: Double) {
+        let (x, y) = chromaticity(kelvin: kelvin)
+        guard duv != 0 else { return (x, y) }
+        let d = -2 * x + 12 * y + 3
+        let n = locusNormal(kelvin: min(max(kelvin, 1000), 15000))
+        let u = 4 * x / d + duv * n.u, v = 6 * y / d + duv * n.v
+        let e = 2 * u - 8 * v + 4
+        return (3 * u / e, 2 * v / e)
+    }
+
+    /// Gamma-encoded channel multipliers that shift white by `tint` (Adobe units) at `kelvin`,
+    /// relative to no tint. The strongest channel stays at 1.
+    public static func tintGains(tint: Double, kelvin: Double, gamma: Double = 2.2) -> (red: Double, green: Double, blue: Double) {
+        let t = linearRGB(chromaticity(kelvin: kelvin, duv: tint / tintScale))
+        let r = linearRGB(chromaticity(kelvin: kelvin))
+        var m = (t.0 / r.0, t.1 / r.1, t.2 / r.2)
+        let peak = max(m.0, m.1, m.2)
+        m = (m.0 / peak, m.1 / peak, m.2 / peak)
+        return (pow(max(m.0, 0), 1 / gamma), pow(max(m.1, 0), 1 / gamma), pow(max(m.2, 0), 1 / gamma))
     }
 
     /// Multipliers for gamma-encoded values that move white from `reference` to `target`.

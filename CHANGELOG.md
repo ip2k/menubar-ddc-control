@@ -5,6 +5,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A green ↔ magenta **Tint** slider under "Adjust colours using GPU". It shifts white across the
+  blackbody curve, at right angles to the white point. Values are in Lightroom's units (Tint =
+  −3000 × Duv, so ±18 is the ANSI ±0.006 tolerance for lamps). Moving it adjusts the red, green and
+  blue sliders, keeping any balance you set by hand. Tap Neutral to reset it.
+
+### Fixed
+
+- The Homebrew cask no longer triggers a deprecation warning for its macOS requirement.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added

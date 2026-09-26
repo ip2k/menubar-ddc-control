@@ -282,3 +282,44 @@ let edgeCapabilities = "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 
         #expect(!release.isUpdate(over: AppVersion("0.1.0")!))
     }
 }
+
+@Suite struct Tint {
+    @Test func noTintIsNeutral() {
+        let g = WhitePoint.tintGains(tint: 0, kelvin: 6504)
+        #expect(abs(g.red - 1) < 1e-9 && abs(g.green - 1) < 1e-9 && abs(g.blue - 1) < 1e-9)
+    }
+
+    @Test func magentaCutsGreenAndGreenCutsRedAndBlue() {
+        let magenta = WhitePoint.tintGains(tint: 30, kelvin: 6504)
+        #expect(magenta.green < 0.97 && magenta.green < magenta.red && magenta.green < magenta.blue)
+        let green = WhitePoint.tintGains(tint: -30, kelvin: 6504)
+        #expect(green.green == 1 && green.red < 0.99 && green.blue < 0.99)
+    }
+
+    @Test func shiftIsAcrossTheLocusInUV() {
+        // Moving by Duv 0.01 must move the uv point by 0.01, perpendicular to the locus.
+        func uv(_ p: (x: Double, y: Double)) -> (Double, Double) {
+            let d = -2 * p.x + 12 * p.y + 3
+            return (4 * p.x / d, 6 * p.y / d)
+        }
+        let a = uv(WhitePoint.chromaticity(kelvin: 5000, duv: 0)), b = uv(WhitePoint.chromaticity(kelvin: 5000, duv: 0.01))
+        let distance = ((b.0 - a.0) * (b.0 - a.0) + (b.1 - a.1) * (b.1 - a.1)).squareRoot()
+        #expect(abs(distance - 0.01) < 1e-6)
+        #expect(b.1 > a.1)   // +Duv is above the locus (greener)
+    }
+
+    @Test func tintDrivesRGBAndKeepsManualBalance() {
+        var a = SoftwareAdjustment()
+        a.enabled = true
+        a.red = 0.9                                    // a manual tweak
+        let magenta = a.settingTint(20)
+        #expect(magenta.tint == 20 && magenta.green < a.green)
+        #expect(max(magenta.red, magenta.green, magenta.blue) <= 1)
+        let back = magenta.settingTint(0)
+        #expect(abs(back.red - 0.9) < 1e-9 && abs(back.green - 1) < 1e-9 && abs(back.blue - 1) < 1e-9)
+    }
+
+    @Test func clampsToRange() {
+        #expect(SoftwareAdjustment().settingTint(500).tint == 50)
+    }
+}

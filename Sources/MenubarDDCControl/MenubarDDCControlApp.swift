@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         //   --debug-appearance light|dark   force Rosé Pine Dawn or Moon
         //   --debug-only <name>      only show displays whose name contains <name>
         //   --debug-gpu-on           tick "Adjust colours using GPU" (values stay at their defaults)
+        //   --debug-tint <n>         set the GPU tint (with --debug-gpu-on: this changes the picture)
         //   --debug-tab <n>          open Settings on tab n (0 Displays, 1 Snapshots, 2 General)
         //   --debug-height <pt>      height to enlarge Settings to before snapshotting (default 1900)
         //   --debug-snapshot <dir>   (with --debug-show-ui, first runs Read All DDC Values) writes each window to <dir>/<n>.png, then again as
@@ -70,6 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             guard let directory else { return }
             if arguments.contains("--debug-gpu-on") { app.selected?.gpuEnabled = true }
+            if let index = arguments.firstIndex(of: "--debug-tint"), index + 1 < arguments.count,
+               let tint = Double(arguments[index + 1]), let model = app.selected {
+                model.software = model.software.settingTint(tint)
+            }
             if arguments.contains("--debug-show-ui") {
                 app.selected?.readAllValues()
                 try? await Task.sleep(for: .seconds(8))
