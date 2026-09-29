@@ -1,7 +1,7 @@
 # Updated automatically by .github/workflows/release.yml after each release.
 cask "menubar-ddc-control" do
-  version "0.2.0"
-  sha256 "2f051f615e1a2174aef8773ce7530521c005dfda5d07339630dff6ddf1da4f16"
+  version "0.3.0"
+  sha256 "a69db32ce7d2902ef101cd3bc79ba240631b517747246d673ef6dca33752d04b"
 
   url "https://github.com/ip2k/menubar-ddc-control/releases/download/v#{version}/Menubar-DDC-Control-#{version}.dmg"
   name "Menubar DDC Control"
