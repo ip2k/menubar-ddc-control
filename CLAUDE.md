@@ -13,6 +13,13 @@ links without DDC/CI, and saved snapshots.
 - **Last hygiene audit:** none yet. Baseline 1,968 Swift source lines at the first merge
   (branch `feature/2026-09-25@ddc-menubar-app`). Audit after roughly 10,000 more.
 
+## Research and tools
+
+`docs/research/` holds the investigation log, colour science, contrast analysis and decision record;
+add to the log and decisions when something new is learned or decided. `tools/` holds the icon
+pipeline (`tools/icon/build-icon.sh`, byte-identical to the shipped icon) and historical probes.
+Session scratch files are lost to temp cleanups; anything worth keeping goes in the repo.
+
 ## Layout
 
 - `Sources/DDCKit`: no UI. DDC/CI framing and I2C over the private `IOAVService*`
