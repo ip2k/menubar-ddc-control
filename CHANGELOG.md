@@ -5,6 +5,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Documentation
+
+- `docs/research/`: the investigation log (including two incidents and their recovery), colour-science
+  notes for the white point, tint and GPU gamma, the Rosé Pine contrast analysis, a decision record,
+  the Edge's factory User 1 state and a full VCP dump.
+- `tools/`: the icon pipeline (reproduces the shipped icon exactly), the menu bar icon comparison
+  harness, and the two original DDC probes.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added

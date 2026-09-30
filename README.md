@@ -140,6 +140,10 @@ what each one controls, its range and factory value, and what happens when you w
 covers the quirks (RGB gains are read-only; some presets wipe User 1's calibration) and how to
 recover. It applies to any tool on any OS, not only this app.
 
+[docs/research/](docs/research/) has the story around it: an investigation log, the colour science
+behind the white point and tint, the contrast analysis for the theme, a decision record, and raw
+readings from the device. [tools/](tools/) has the icon pipeline and the original probes.
+
 ## Privacy
 
 The only network request the app makes is the update check, a weekly `GET` of this repository's

@@ -1,0 +1,199 @@
+{
+  "capabilities" : "(prot(monitor)type(LCD)model(RTK)cmds(01 02 03 07 0C E3 F3)vcp(02 04 05 06 08 0B 0C 10 12 14(01 02 04 05 06 08 0B) 16 18 1A 52 60(01 03 04 0F 10 11 12) 87 AC AE B2 B6 C6 C8 CA CC(01 02 03 04 06 0A 0D) D6(01 04 05) DF FD FF)mswhql(1)asset_eep(40)mccs_ver(2.2))",
+  "capturedAt" : "2026-09-30T09:09:26Z",
+  "display" : {
+    "manufacturerID" : "CRX",
+    "model" : 60672,
+    "name" : "XENEON EDGE",
+    "vendor" : 3672
+  },
+  "format" : "ddckit-dump/1",
+  "unanswered" : [
+    "0xFD",
+    "0xFF"
+  ],
+  "values" : [
+    {
+      "code" : "0x02",
+      "current" : 1,
+      "maximum" : 2,
+      "name" : "New control value",
+      "restorable" : false
+    },
+    {
+      "code" : "0x04",
+      "current" : 0,
+      "maximum" : 1,
+      "name" : "Restore factory defaults",
+      "restorable" : false
+    },
+    {
+      "code" : "0x05",
+      "current" : 0,
+      "maximum" : 1,
+      "name" : "Restore brightness and contrast",
+      "restorable" : false
+    },
+    {
+      "code" : "0x06",
+      "current" : 0,
+      "maximum" : 1,
+      "name" : "Restore geometry",
+      "restorable" : false
+    },
+    {
+      "code" : "0x08",
+      "current" : 0,
+      "maximum" : 1,
+      "name" : "Restore colour defaults",
+      "restorable" : false
+    },
+    {
+      "code" : "0x0B",
+      "current" : 100,
+      "maximum" : 0,
+      "name" : "Colour temperature increment",
+      "restorable" : false
+    },
+    {
+      "code" : "0x0C",
+      "current" : 45,
+      "maximum" : 63,
+      "name" : "Colour temperature request",
+      "restorable" : true
+    },
+    {
+      "code" : "0x10",
+      "current" : 63,
+      "maximum" : 100,
+      "name" : "Brightness",
+      "restorable" : true
+    },
+    {
+      "code" : "0x12",
+      "current" : 50,
+      "maximum" : 100,
+      "name" : "Contrast",
+      "restorable" : true
+    },
+    {
+      "code" : "0x14",
+      "current" : 6,
+      "maximum" : 11,
+      "name" : "Colour preset",
+      "restorable" : true
+    },
+    {
+      "code" : "0x16",
+      "current" : 151,
+      "maximum" : 255,
+      "name" : "Red gain",
+      "restorable" : true
+    },
+    {
+      "code" : "0x18",
+      "current" : 127,
+      "maximum" : 255,
+      "name" : "Green gain",
+      "restorable" : true
+    },
+    {
+      "code" : "0x1A",
+      "current" : 139,
+      "maximum" : 255,
+      "name" : "Blue gain",
+      "restorable" : true
+    },
+    {
+      "code" : "0x52",
+      "current" : 139,
+      "maximum" : 255,
+      "name" : "Active control",
+      "restorable" : false
+    },
+    {
+      "code" : "0x60",
+      "current" : 15,
+      "maximum" : 3,
+      "name" : "Input source",
+      "restorable" : false
+    },
+    {
+      "code" : "0x87",
+      "current" : 2,
+      "maximum" : 4,
+      "name" : "Sharpness",
+      "restorable" : true
+    },
+    {
+      "code" : "0xAC",
+      "current" : 50600,
+      "maximum" : 0,
+      "name" : "Horizontal frequency",
+      "restorable" : false
+    },
+    {
+      "code" : "0xAE",
+      "current" : 6030,
+      "maximum" : 65535,
+      "name" : "Vertical frequency",
+      "restorable" : false
+    },
+    {
+      "code" : "0xB2",
+      "current" : 1,
+      "maximum" : 1,
+      "name" : "Flat-panel sub-pixel layout",
+      "restorable" : false
+    },
+    {
+      "code" : "0xB6",
+      "current" : 3,
+      "maximum" : 5,
+      "name" : "Display technology type",
+      "restorable" : false
+    },
+    {
+      "code" : "0xC6",
+      "current" : 90,
+      "maximum" : 255,
+      "name" : "Application enable key",
+      "restorable" : false
+    },
+    {
+      "code" : "0xC8",
+      "current" : 9,
+      "maximum" : 0,
+      "name" : "Display controller type",
+      "restorable" : false
+    },
+    {
+      "code" : "0xCA",
+      "current" : 1,
+      "maximum" : 2,
+      "name" : "OSD",
+      "restorable" : false
+    },
+    {
+      "code" : "0xCC",
+      "current" : 2,
+      "maximum" : 13,
+      "name" : "OSD language",
+      "restorable" : true
+    },
+    {
+      "code" : "0xD6",
+      "current" : 1,
+      "maximum" : 5,
+      "name" : "Power mode",
+      "restorable" : false
+    },
+    {
+      "code" : "0xDF",
+      "current" : 514,
+      "maximum" : 65535,
+      "name" : "VCP version",
+      "restorable" : false
+    }
+  ]
+}
